@@ -5,7 +5,7 @@ on:
   pull_request:
 
 jobs:
-  build-linux:
+  lint:
     runs-on: ubuntu-latest
     strategy:
       max-parallel: 5
@@ -30,7 +30,7 @@ jobs:
         cat > secret.jx3dat << 'EOF'
         ${{ secrets.SECRET_JX3DAT }}
         EOF
-    - name: Run Build Command
+    - name: Run Lint Command
       run: |
         python3 \!src-dist/ci.py
     - name: Upload Artifacts
