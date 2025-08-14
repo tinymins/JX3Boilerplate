@@ -1,4 +1,4 @@
-name: Release
+name: Publish
 
 on:
   workflow_dispatch:
@@ -16,9 +16,10 @@ on:
         type: string
 
 jobs:
-  release:
+  publish:
     runs-on: ubuntu-latest
     environment:
+      name: Publish
       url: ${{ github.server_url }}/${{ github.repository }}/releases/tag/v${{ github.event.inputs.version }}
 
     steps:
