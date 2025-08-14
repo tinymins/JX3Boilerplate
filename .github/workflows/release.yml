@@ -16,7 +16,7 @@ on:
         type: string
 
 jobs:
-  release:
+  prepare-release:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout full repo
@@ -84,8 +84,79 @@ jobs:
           tail -n +3 CHANGELOG.md >> $TMPFILE
           mv $TMPFILE CHANGELOG.md
 
-      - name: Commit and push
+      - name: Commit changes
         run: |
-          git add Boilerplate_!Base/src/lib/Base.lua CHANGELOG.md
-          git commit -m "release: ${{ github.event.inputs.version }}"
-          git push origin stable --force
+          git add CHANGELOG.md Boilerplate_!Base/src/lib/Base.lua
+          git commit -m "chore: release v${{ github.event.inputs.version }}"
+          git push -f origin stable
+
+  build:
+    needs: prepare-release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: stable
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install pip dependencies
+        run: |
+          pip3 install semver luadata
+
+      - name: Install apt dependencies
+        run: |
+          sudo rm -f /var/lib/man-db/auto-update
+          sudo apt install --no-install-recommends lua5.1 p7zip-full
+
+      - name: Write secret to file
+        run: |
+          cat > secret.jx3dat << 'EOF'
+          ${{ secrets.SECRET_JX3DAT }}
+          EOF
+
+      - name: Run Build Command
+        run: |
+          python3 \!src-dist/ci.py
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-archives-${{ github.run_number }}-${{ github.sha }}
+          path: '\!src-dist/dist/*.7z'
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: Production
+      url: ${{ github.server_url }}/${{ github.repository }}/releases/tag/v${{ github.event.inputs.version }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: stable
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install pip dependencies
+        run: |
+          pip3 install semver
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist-archives-${{ github.run_number }}-${{ github.sha }}
+          path: \!src-dist/dist
+
+      - name: Run Release Command
+        run: |
+          python3 \!src-dist/release.py
