@@ -35,6 +35,22 @@ jobs:
           sudo rm -f /var/lib/man-db/auto-update
           sudo apt install --no-install-recommends lua5.1 p7zip-full
 
+      - name: Write secret to file
+        run: |
+          cat > secret.jx3dat << 'EOF'
+          ${{ secrets.SECRET_JX3DAT }}
+          EOF
+
       - name: Run Release Command
         run: |
           python3 \!src-dist/release.py --skip-branch-check
+
+      - name: Run Build Command
+        run: |
+          python3 \!src-dist/ci.py
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-archives-${{ github.run_number }}-${{ github.sha }}
+          path: '\!src-dist/dist/*.7z'
