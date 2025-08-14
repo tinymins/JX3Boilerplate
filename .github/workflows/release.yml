@@ -37,4 +37,4 @@ jobs:
 
       - name: Run Release Command
         run: |
-          python3 \!src-dist/release.py
+          python3 \!src-dist/release.py --skip-branch-check
