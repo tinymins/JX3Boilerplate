@@ -31,7 +31,12 @@ jobs:
 
       - name: Install pip dependencies
         run: |
-          pip3 install semver
+          pip3 install semver luadata
+
+      - name: Install apt dependencies
+        run: |
+          sudo rm -f /var/lib/man-db/auto-update
+          sudo apt install --no-install-recommends lua5.1 p7zip-full
 
       - name: Set up Git user
         run: |
@@ -84,10 +89,12 @@ jobs:
           tail -n +3 CHANGELOG.md >> $TMPFILE
           mv $TMPFILE CHANGELOG.md
 
-      - name: Commit changes
+      - name: Run Publish Command
         run: |
-          git add CHANGELOG.md Boilerplate_!Base/src/lib/Base.lua
-          git commit -m "chore: release v${{ github.event.inputs.version }}"
+          python3 \!src-dist/publish.py
+
+      - name: Push commits
+        run: |
           git push -f origin stable
 
   build:
@@ -156,6 +163,11 @@ jobs:
         with:
           name: dist-archives-${{ github.run_number }}-${{ github.sha }}
           path: \!src-dist/dist
+
+      - name: Set up Git user
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
       - name: Run Release Command
         run: |
