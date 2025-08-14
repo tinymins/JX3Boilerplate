@@ -16,8 +16,11 @@ on:
         type: string
 
 jobs:
-  prepare-release:
+  release:
     runs-on: ubuntu-latest
+    environment:
+      url: ${{ github.server_url }}/${{ github.repository }}/releases/tag/v${{ github.event.inputs.version }}
+
     steps:
       - name: Checkout full repo
         uses: actions/checkout@v4
@@ -43,14 +46,10 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: Switch to stable branch
+      - name: Switch and hard reset to master
         run: |
           git fetch origin
-          git checkout stable || git checkout -b stable
-
-      - name: Hard reset to master
-        run: |
-          git fetch origin master
+          git checkout master
           git reset --hard origin/master
 
       - name: Check version
@@ -72,8 +71,8 @@ jobs:
         run: |
           DATE=$(date +%Y%m%d)
           VERSION="${{ github.event.inputs.version }}"
-          sed -i "s/local _BUILD_ *=[^']*'[^']*'/local _BUILD_                 = '${DATE}'/" Boilerplate_!Base/src/lib/Base.lua
-          sed -i "s/local _VERSION_ *=[^']*'[^']*'/local _VERSION_               = '${VERSION}'/" Boilerplate_!Base/src/lib/Base.lua
+          sed -i "s/\(local _BUILD_\)\( *\)\(=\) *'[^']*'/\1\2\3 '${DATE}'/" Boilerplate_!Base/src/lib/Base.lua
+          sed -i "s/\(local _VERSION_\)\( *\)\(=\) *'[^']*'/\1\2\3 '${VERSION}'/" Boilerplate_!Base/src/lib/Base.lua
 
       - name: Update CHANGELOG.md
         run: |
@@ -89,85 +88,25 @@ jobs:
           tail -n +3 CHANGELOG.md >> $TMPFILE
           mv $TMPFILE CHANGELOG.md
 
-      - name: Run Publish Command
-        run: |
-          python3 \!src-dist/publish.py
-
-      - name: Push commits
-        run: |
-          git push -f origin stable
-
-  build:
-    needs: prepare-release
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: stable
-          fetch-depth: 0
-
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.10'
-
-      - name: Install pip dependencies
-        run: |
-          pip3 install semver luadata
-
-      - name: Install apt dependencies
-        run: |
-          sudo rm -f /var/lib/man-db/auto-update
-          sudo apt install --no-install-recommends lua5.1 p7zip-full
-
       - name: Write secret to file
         run: |
           cat > secret.jx3dat << 'EOF'
           ${{ secrets.SECRET_JX3DAT }}
           EOF
 
+      - name: Commit release changes
+        run: |
+          VERSION="${{ github.event.inputs.version }}"
+          git add -A
+          git commit -m "release: ${VERSION}" || echo "No changes to commit"
+
       - name: Run Build Command
         run: |
           python3 \!src-dist/ci.py
 
-      - name: Upload Artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: dist-archives-${{ github.run_number }}-${{ github.sha }}
-          path: '\!src-dist/dist/*.7z'
-
-  publish:
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: Production
-      url: ${{ github.server_url }}/${{ github.repository }}/releases/tag/v${{ github.event.inputs.version }}
-
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: stable
-          fetch-depth: 0
-
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.10'
-
-      - name: Install pip dependencies
+      - name: Push commits
         run: |
-          pip3 install semver
-
-      - name: Download artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: dist-archives-${{ github.run_number }}-${{ github.sha }}
-          path: \!src-dist/dist
-
-      - name: Set up Git user
-        run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git push -f origin master:stable
 
       - name: Create release branch and PR
         env:
@@ -175,16 +114,16 @@ jobs:
         run: |
           VERSION="${{ github.event.inputs.version }}"
           BRANCH="release/v${VERSION}"
-
-          # Create and switch to release branch
           git checkout -b $BRANCH
-
-          # Push branch to remote
-          git push -u origin $BRANCH
-
-          # Create Pull Request
+          git push -u origin $BRANCH -f
           gh pr create \
             --title "release: v${VERSION}" \
             --body "Automated release PR for version ${VERSION}" \
             --base master \
             --head $BRANCH
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-archives-${{ github.run_number }}-${{ github.sha }}
+          path: '\!src-dist/dist/*.7z'
