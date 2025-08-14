@@ -169,15 +169,18 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: Create Pull Request
+      - name: Create release branch and PR
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           VERSION="${{ github.event.inputs.version }}"
           BRANCH="release/v${VERSION}"
 
-          # Run release script with dry-run to create tags without pushing
-          python3 \!src-dist/release.py --dry-run
+          # Create and switch to release branch
+          git checkout -b $BRANCH
+
+          # Push branch to remote
+          git push -u origin $BRANCH
 
           # Create Pull Request
           gh pr create \
@@ -185,6 +188,3 @@ jobs:
             --body "Automated release PR for version ${VERSION}" \
             --base master \
             --head $BRANCH
-
-          # Push tags after PR is created
-          git push origin --tags
