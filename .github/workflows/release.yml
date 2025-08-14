@@ -29,6 +29,10 @@ jobs:
         with:
           python-version: '3.10'
 
+      - name: Install pip dependencies
+        run: |
+          pip3 install semver
+
       - name: Set up Git user
         run: |
           git config --global user.name "github-actions[bot]"
@@ -43,6 +47,21 @@ jobs:
         run: |
           git fetch origin master
           git reset --hard origin/master
+
+      - name: Check version
+        run: |
+          VERSION="${{ github.event.inputs.version }}"
+          CURRENT_VERSION=$(grep "_VERSION_.*'.*'" Boilerplate_!Base/src/lib/Base.lua | sed -E "s/.*'(.*)'.*/\1/")
+          python3 -c "
+          import semver
+          try:
+            if not semver.compare('$VERSION', '$CURRENT_VERSION') > 0:
+              print('::error::New version $VERSION must be greater than current version $CURRENT_VERSION')
+              exit(1)
+          except ValueError as e:
+            print('::error::Invalid version format. Both versions must be in format X.Y.Z')
+            exit(1)
+          "
 
       - name: Update Base.lua version and build
         run: |
