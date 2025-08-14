@@ -12,7 +12,6 @@ on:
       changelog:
         description: '更新日志（子插件壹：更新内容|子插件贰：更新内容）'
         required: true
-        default: '子插件：更新了什么内容'
         type: string
 
 jobs:
