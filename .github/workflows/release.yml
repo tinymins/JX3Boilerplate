@@ -10,10 +10,9 @@ on:
           0.0.0
         type: string
       changelog:
-        description: '更新日志（多行文本）'
+        description: '更新日志（用 | 分隔多行内容）'
         required: true
-        default: |
-          * [子插件] 更新了什么内容
+        default: '* [子插件] 更新了什么内容'
         type: string
 
 jobs:
@@ -61,9 +60,9 @@ jobs:
           echo "" >> $TMPFILE
           echo "## Boilerplate插件集 v${VERSION}" >> $TMPFILE
           echo "" >> $TMPFILE
-          echo "${CHANGELOG}" >> $TMPFILE
+          echo "$CHANGELOG" | tr '|' '\n' >> $TMPFILE
           echo "" >> $TMPFILE
-          tail -n +2 CHANGELOG.md >> $TMPFILE
+          tail -n +3 CHANGELOG.md >> $TMPFILE
           mv $TMPFILE CHANGELOG.md
 
       - name: Commit and push
