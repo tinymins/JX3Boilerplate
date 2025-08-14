@@ -1,0 +1,73 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: '要发布的版本号'
+        required: true
+        default: |
+          0.0.0
+        type: string
+      changelog:
+        description: '更新日志（多行文本）'
+        required: true
+        default: |
+          * [子插件] 更新了什么内容
+        type: string
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout full repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Set up Git user
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Switch to stable branch
+        run: |
+          git fetch origin
+          git checkout stable || git checkout -b stable
+
+      - name: Hard reset to master
+        run: |
+          git fetch origin master
+          git reset --hard origin/master
+
+      - name: Update Base.lua version and build
+        run: |
+          DATE=$(date +%Y%m%d)
+          VERSION="${{ github.event.inputs.version }}"
+          sed -i "s/local _BUILD_ *=[^']*'[^']*'/local _BUILD_                 = '${DATE}'/" Boilerplate_!Base/src/lib/Base.lua
+          sed -i "s/local _VERSION_ *=[^']*'[^']*'/local _VERSION_               = '${VERSION}'/" Boilerplate_!Base/src/lib/Base.lua
+
+      - name: Update CHANGELOG.md
+        run: |
+          VERSION="${{ github.event.inputs.version }}"
+          CHANGELOG="${{ github.event.inputs.changelog }}"
+          TMPFILE=$(mktemp)
+          echo "# 更新日志" > $TMPFILE
+          echo "" >> $TMPFILE
+          echo "## Boilerplate插件集 v${VERSION}" >> $TMPFILE
+          echo "" >> $TMPFILE
+          echo "${CHANGELOG}" >> $TMPFILE
+          echo "" >> $TMPFILE
+          tail -n +2 CHANGELOG.md >> $TMPFILE
+          mv $TMPFILE CHANGELOG.md
+
+      - name: Commit and push
+        run: |
+          git add Boilerplate_!Base/src/lib/Base.lua CHANGELOG.md
+          git commit -m "release: ${{ github.event.inputs.version }}"
+          git push origin stable --force
