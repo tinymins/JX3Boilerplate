@@ -127,3 +127,11 @@ jobs:
         with:
           name: dist-archives-${{ github.run_number }}-${{ github.sha }}
           path: '\!src-dist/dist/*.7z'
+
+      - name: Trigger Lint Workflow
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${{ github.event.inputs.version }}"
+          BRANCH="release/v${VERSION}"
+          gh workflow run lint.yml -f ref=$BRANCH
