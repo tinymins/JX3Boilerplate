@@ -104,34 +104,30 @@ jobs:
         run: |
           python3 \!src-dist/ci.py
 
-      - name: Push commits
-        run: |
-          git push -f origin master:stable
-
-      - name: Create release branch and PR
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Create Release Branch
         run: |
           VERSION="${{ github.event.inputs.version }}"
           BRANCH="release/v${VERSION}"
-          git checkout -b $BRANCH
-          git push -u origin $BRANCH -f
-          gh pr create \
-            --title "release: v${VERSION}" \
-            --body "Automated release PR for version ${VERSION}" \
-            --base master \
-            --head $BRANCH || echo "PR already exists or failed to create, continuing..."
+          git push -f origin master:stable
+          git push -f origin master:$BRANCH
+
+      - name: Create Pull Request
+        id: create_pr
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.PAT_TOKEN || secrets.GITHUB_TOKEN }}
+          title: "release: v${{ github.event.inputs.version }}"
+          body: "Automated release PR for version ${{ github.event.inputs.version }}"
+          base: master
+          branch: "release/v${{ github.event.inputs.version }}"
+
+      - name: Output PR URL
+        if: steps.create_pr.outputs.pull-request-url
+        run: |
+          echo "::notice::Pull Request created: ${{ steps.create_pr.outputs.pull-request-url }}"
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: dist-archives-${{ github.run_number }}-${{ github.sha }}
           path: '\!src-dist/dist/*.7z'
-
-      - name: Trigger Lint Workflow
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          VERSION="${{ github.event.inputs.version }}"
-          BRANCH="release/v${VERSION}"
-          gh workflow run lint.yml -f ref=$BRANCH
