@@ -17,6 +17,7 @@ on:
 jobs:
   publish:
     runs-on: ubuntu-latest
+    name: 🚀 自动化构建
     environment:
       name: Publish
       url: ${{ github.server_url }}/${{ github.repository }}/releases/tag/v${{ github.event.inputs.version }}
@@ -75,13 +76,12 @@ jobs:
           sed -i "s/\(local _VERSION_\)\( *\)\(=\) *'[^']*'/\1\2\3 '${VERSION}'/" Boilerplate_!Base/src/lib/Base.lua
 
       - name: Update CHANGELOG.md
+        id: update_changelog
         run: |
           VERSION="${{ github.event.inputs.version }}"
           CHANGELOG="${{ github.event.inputs.changelog }}"
           TMPFILE=$(mktemp)
           echo "# 更新日志" > $TMPFILE
-          echo "" >> $TMPFILE
-          echo "## Boilerplate插件集 v${VERSION}" >> $TMPFILE
           echo "" >> $TMPFILE
 
           # 智能处理更新日志内容
@@ -123,7 +123,7 @@ jobs:
           }
 
           # 处理更新日志并保存到临时变量
-          PROCESSED_CHANGELOG=$(process_changelog "$CHANGELOG")
+          PROCESSED_CHANGELOG="## Boilerplate插件集 v${VERSION}"$'\n\n'"$(process_changelog "$CHANGELOG")"
 
           # 输出到 TMPFILE
           echo "$PROCESSED_CHANGELOG" >> $TMPFILE
@@ -131,10 +131,12 @@ jobs:
           tail -n +3 CHANGELOG.md >> $TMPFILE
           mv $TMPFILE CHANGELOG.md
 
-          # 输出到 GitHub Actions 注释，让外面能看到处理结果
-          NOTICE_CONTENT="以下是本次发布的更新内容：%0A$PROCESSED_CHANGELOG"
-          NOTICE_CONTENT=$(echo "$NOTICE_CONTENT" | sed ':a;N;$!ba;s/\n/%0A/g')
-          echo "::notice title=📝 更新日志内容::$NOTICE_CONTENT"
+          # 设置步骤输出（用于后续步骤）
+          {
+            echo "changelog<<EOF"
+            echo "$PROCESSED_CHANGELOG"
+            echo "EOF"
+          } >> $GITHUB_OUTPUT
 
       - name: Write secret to file
         run: |
@@ -169,10 +171,29 @@ jobs:
           base: master
           branch: "release/v${{ github.event.inputs.version }}"
 
-      - name: Output PR URL
+      - name: Output Summary
         if: steps.create_pr.outputs.pull-request-url
         run: |
-          echo "::notice::Pull Request created: ${{ steps.create_pr.outputs.pull-request-url }}"
+          echo "# 🎉 构建成功!" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # 输出更新日志内容
+          echo "## 📝 更新日志内容" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          echo "${{ steps.update_changelog.outputs.changelog }}" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # 输出 Pull Request 信息
+          echo "## 🔗 Pull Request 信息" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "📝 **Pull Request 已创建**: ${{ steps.create_pr.outputs.pull-request-url }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "🎯 **版本**: v${{ github.event.inputs.version }}" >> $GITHUB_STEP_SUMMARY
+
+          # 同时输出 notice
+          echo "::notice title=📝 Pull Request 已生成::Pull Request created: ${{ steps.create_pr.outputs.pull-request-url }}"
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
