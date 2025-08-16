@@ -171,6 +171,13 @@ jobs:
           base: master
           branch: "release/v${{ github.event.inputs.version }}"
 
+      - name: Upload Artifacts
+        id: upload_artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-archives-${{ github.run_number }}-${{ github.sha }}
+          path: '\!src-dist/dist/*.7z'
+
       - name: Output Summary
         if: steps.create_pr.outputs.pull-request-url
         run: |
@@ -191,12 +198,16 @@ jobs:
           echo "📝 **Pull Request 已创建**: ${{ steps.create_pr.outputs.pull-request-url }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "🎯 **版本**: v${{ github.event.inputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # 输出 Artifacts 信息
+          echo "## 📦 构建产物" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "📁 **Artifacts 名称**: \`dist-archives-${{ github.run_number }}-${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "🔗 **下载链接**: [${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "💡 点击上面的链接可以在 Actions 页面中找到并下载构建产物" >> $GITHUB_STEP_SUMMARY
 
           # 同时输出 notice
           echo "::notice title=📝 Pull Request 已生成::Pull Request created: ${{ steps.create_pr.outputs.pull-request-url }}"
-
-      - name: Upload Artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: dist-archives-${{ github.run_number }}-${{ github.sha }}
-          path: '\!src-dist/dist/*.7z'
