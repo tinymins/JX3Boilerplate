@@ -83,10 +83,58 @@ jobs:
           echo "" >> $TMPFILE
           echo "## Boilerplate插件集 v${VERSION}" >> $TMPFILE
           echo "" >> $TMPFILE
-          echo "$CHANGELOG" | tr '|' '\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | sed 's/^["""]//g' | sed 's/["""]$//g' | sed 's/[：:]/] /g' | sed 's/^/* [/g' >> $TMPFILE
+
+          # 智能处理更新日志内容
+          process_changelog() {
+            local input="$1"
+
+            # 首先处理原始格式 * [插件] 内容，在 * 前面添加分隔符
+            input=$(echo "$input" | sed 's/\([^|]\)\(\*[[:space:]]*\[\)/\1|\2/g')
+
+            # 按 | 分割每一行
+            echo "$input" | tr '|' '\n' | while IFS= read -r line; do
+              # 去掉首尾空格
+              line=$(echo "$line" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+
+              # 去掉首尾引号
+              line=$(echo "$line" | sed 's/^["""]//;s/["""]$//')
+
+              # 跳过空行
+              [ -z "$line" ] && continue
+
+              # 检查是否已经是 * [插件] 格式
+              if echo "$line" | grep -q '^\*[[:space:]]*\['; then
+                # 已经是正确格式，只需要格式化空格
+                plugin=$(echo "$line" | sed 's/^\*[[:space:]]*\[\([^]]*\)\].*/\1/' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+                content=$(echo "$line" | sed 's/^\*[[:space:]]*\[[^]]*\][[:space:]]*//')
+                echo "* [$plugin] $content"
+              else
+                # 转换 插件:内容 格式为 * [插件] 内容
+                if echo "$line" | grep -q '[：:]'; then
+                  plugin=$(echo "$line" | sed 's/\([^：:]*\)[：:].*/\1/' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | sed 's/^["""]//;s/["""]$//')
+                  content=$(echo "$line" | sed 's/[^：:]*[：:][[:space:]]*//' | sed 's/^["""]//;s/["""]$//')
+                  echo "* [$plugin] $content"
+                else
+                  # 如果没有冒号，假设整行都是内容
+                  echo "* $line"
+                fi
+              fi
+            done
+          }
+
+          # 处理更新日志并保存到临时变量
+          PROCESSED_CHANGELOG=$(process_changelog "$CHANGELOG")
+
+          # 输出到 TMPFILE
+          echo "$PROCESSED_CHANGELOG" >> $TMPFILE
           echo "" >> $TMPFILE
           tail -n +3 CHANGELOG.md >> $TMPFILE
           mv $TMPFILE CHANGELOG.md
+
+          # 输出到 GitHub Actions 注释，让外面能看到处理结果
+          NOTICE_CONTENT="以下是本次发布的更新内容：%0A$PROCESSED_CHANGELOG"
+          NOTICE_CONTENT=$(echo "$NOTICE_CONTENT" | sed ':a;N;$!ba;s/\n/%0A/g')
+          echo "::notice title=? 更新日志内容::$NOTICE_CONTENT"
 
       - name: Write secret to file
         run: |
