@@ -34,7 +34,7 @@ jobs:
 
           # 获取所有git tags，按版本排序
           echo "Fetching all git tags..."
-          all_tags=$(git tag -l | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+' | sort -V)
+          all_tags=$(git tag -l | grep -E '^[vV][0-9]+(\.[0-9]+)*$' | sort -V)
           echo "All git tags:"
           echo "$all_tags"
           echo ""
