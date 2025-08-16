@@ -4,15 +4,11 @@ on:
   push:
     branches:
       - master
-  pull_request:
-    types: [closed]
 
 jobs:
   release:
     runs-on: ubuntu-latest
-    if: |
-      (github.event_name == 'push' && contains(github.event.head_commit.message, 'release')) ||
-      (github.event_name == 'pull_request' && github.event.pull_request.merged == true)
+    if: contains(github.event.head_commit.message, 'release')
     strategy:
       max-parallel: 5
 
