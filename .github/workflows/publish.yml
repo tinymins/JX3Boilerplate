@@ -4,13 +4,13 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Òª·¢²¼µÄ°æ±¾ºÅ'
+        description: 'è¦å‘å¸ƒçš„ç‰ˆæœ¬å·'
         required: true
         default: |
           0.0.0
         type: string
       changelog:
-        description: '¸üÐÂÈÕÖ¾£¨×Ó²å¼þÒ¼£º¸üÐÂÄÚÈÝ|×Ó²å¼þ·¡£º¸üÐÂÄÚÈÝ£©'
+        description: 'æ›´æ–°æ—¥å¿—ï¼ˆå­æ’ä»¶å£¹ï¼šæ›´æ–°å†…å®¹|å­æ’ä»¶è´°ï¼šæ›´æ–°å†…å®¹ï¼‰'
         required: true
         type: string
 
@@ -79,62 +79,62 @@ jobs:
           VERSION="${{ github.event.inputs.version }}"
           CHANGELOG="${{ github.event.inputs.changelog }}"
           TMPFILE=$(mktemp)
-          echo "# ¸üÐÂÈÕÖ¾" > $TMPFILE
+          echo "# æ›´æ–°æ—¥å¿—" > $TMPFILE
           echo "" >> $TMPFILE
-          echo "## Boilerplate²å¼þ¼¯ v${VERSION}" >> $TMPFILE
+          echo "## Boilerplateæ’ä»¶é›† v${VERSION}" >> $TMPFILE
           echo "" >> $TMPFILE
 
-          # ÖÇÄÜ´¦Àí¸üÐÂÈÕÖ¾ÄÚÈÝ
+          # æ™ºèƒ½å¤„ç†æ›´æ–°æ—¥å¿—å†…å®¹
           process_changelog() {
             local input="$1"
 
-            # Ê×ÏÈ´¦ÀíÔ­Ê¼¸ñÊ½ * [²å¼þ] ÄÚÈÝ£¬ÔÚ * Ç°ÃæÌí¼Ó·Ö¸ô·û
+            # é¦–å…ˆå¤„ç†åŽŸå§‹æ ¼å¼ * [æ’ä»¶] å†…å®¹ï¼Œåœ¨ * å‰é¢æ·»åŠ åˆ†éš”ç¬¦
             input=$(echo "$input" | sed 's/\([^|]\)\(\*[[:space:]]*\[\)/\1|\2/g')
 
-            # °´ | ·Ö¸îÃ¿Ò»ÐÐ
+            # æŒ‰ | åˆ†å‰²æ¯ä¸€è¡Œ
             echo "$input" | tr '|' '\n' | while IFS= read -r line; do
-              # È¥µôÊ×Î²¿Õ¸ñ
+              # åŽ»æŽ‰é¦–å°¾ç©ºæ ¼
               line=$(echo "$line" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
 
-              # È¥µôÊ×Î²ÒýºÅ
+              # åŽ»æŽ‰é¦–å°¾å¼•å·
               line=$(echo "$line" | sed 's/^["""]//;s/["""]$//')
 
-              # Ìø¹ý¿ÕÐÐ
+              # è·³è¿‡ç©ºè¡Œ
               [ -z "$line" ] && continue
 
-              # ¼ì²éÊÇ·ñÒÑ¾­ÊÇ * [²å¼þ] ¸ñÊ½
+              # æ£€æŸ¥æ˜¯å¦å·²ç»æ˜¯ * [æ’ä»¶] æ ¼å¼
               if echo "$line" | grep -q '^\*[[:space:]]*\['; then
-                # ÒÑ¾­ÊÇÕýÈ·¸ñÊ½£¬Ö»ÐèÒª¸ñÊ½»¯¿Õ¸ñ
+                # å·²ç»æ˜¯æ­£ç¡®æ ¼å¼ï¼Œåªéœ€è¦æ ¼å¼åŒ–ç©ºæ ¼
                 plugin=$(echo "$line" | sed 's/^\*[[:space:]]*\[\([^]]*\)\].*/\1/' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
                 content=$(echo "$line" | sed 's/^\*[[:space:]]*\[[^]]*\][[:space:]]*//')
                 echo "* [$plugin] $content"
               else
-                # ×ª»» ²å¼þ:ÄÚÈÝ ¸ñÊ½Îª * [²å¼þ] ÄÚÈÝ
-                if echo "$line" | grep -q '[£º:]'; then
-                  plugin=$(echo "$line" | sed 's/\([^£º:]*\)[£º:].*/\1/' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | sed 's/^["""]//;s/["""]$//')
-                  content=$(echo "$line" | sed 's/[^£º:]*[£º:][[:space:]]*//' | sed 's/^["""]//;s/["""]$//')
+                # è½¬æ¢ æ’ä»¶:å†…å®¹ æ ¼å¼ä¸º * [æ’ä»¶] å†…å®¹
+                if echo "$line" | grep -q '[ï¼š:]'; then
+                  plugin=$(echo "$line" | sed 's/\([^ï¼š:]*\)[ï¼š:].*/\1/' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | sed 's/^["""]//;s/["""]$//')
+                  content=$(echo "$line" | sed 's/[^ï¼š:]*[ï¼š:][[:space:]]*//' | sed 's/^["""]//;s/["""]$//')
                   echo "* [$plugin] $content"
                 else
-                  # Èç¹ûÃ»ÓÐÃ°ºÅ£¬¼ÙÉèÕûÐÐ¶¼ÊÇÄÚÈÝ
+                  # å¦‚æžœæ²¡æœ‰å†’å·ï¼Œå‡è®¾æ•´è¡Œéƒ½æ˜¯å†…å®¹
                   echo "* $line"
                 fi
               fi
             done
           }
 
-          # ´¦Àí¸üÐÂÈÕÖ¾²¢±£´æµ½ÁÙÊ±±äÁ¿
+          # å¤„ç†æ›´æ–°æ—¥å¿—å¹¶ä¿å­˜åˆ°ä¸´æ—¶å˜é‡
           PROCESSED_CHANGELOG=$(process_changelog "$CHANGELOG")
 
-          # Êä³öµ½ TMPFILE
+          # è¾“å‡ºåˆ° TMPFILE
           echo "$PROCESSED_CHANGELOG" >> $TMPFILE
           echo "" >> $TMPFILE
           tail -n +3 CHANGELOG.md >> $TMPFILE
           mv $TMPFILE CHANGELOG.md
 
-          # Êä³öµ½ GitHub Actions ×¢ÊÍ£¬ÈÃÍâÃæÄÜ¿´µ½´¦Àí½á¹û
-          NOTICE_CONTENT="ÒÔÏÂÊÇ±¾´Î·¢²¼µÄ¸üÐÂÄÚÈÝ£º%0A$PROCESSED_CHANGELOG"
+          # è¾“å‡ºåˆ° GitHub Actions æ³¨é‡Šï¼Œè®©å¤–é¢èƒ½çœ‹åˆ°å¤„ç†ç»“æžœ
+          NOTICE_CONTENT="ä»¥ä¸‹æ˜¯æœ¬æ¬¡å‘å¸ƒçš„æ›´æ–°å†…å®¹ï¼š%0A$PROCESSED_CHANGELOG"
           NOTICE_CONTENT=$(echo "$NOTICE_CONTENT" | sed ':a;N;$!ba;s/\n/%0A/g')
-          echo "::notice title=? ¸üÐÂÈÕÖ¾ÄÚÈÝ::$NOTICE_CONTENT"
+          echo "::notice title=ðŸ“ æ›´æ–°æ—¥å¿—å†…å®¹::$NOTICE_CONTENT"
 
       - name: Write secret to file
         run: |
