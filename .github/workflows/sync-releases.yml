@@ -21,10 +21,28 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # 获取所有现有的releases
+          # 获取所有现有的releases（支持分页）
           echo "Fetching existing releases..."
-          curl -s -H "Authorization: token $GITHUB_TOKEN" \
-            "https://api.github.com/repos/$GITHUB_REPOSITORY/releases" > existing_releases.json
+          page=1
+          all_releases="[]"
+
+          while true; do
+            echo "Fetching page $page..."
+            releases_page=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
+              "https://api.github.com/repos/$GITHUB_REPOSITORY/releases?page=$page&per_page=100")
+
+            # 检查是否返回了空数组（没有更多数据）
+            if [ "$(echo "$releases_page" | jq '. | length')" = "0" ]; then
+              break
+            fi
+
+            # 合并到总的releases数组中
+            all_releases=$(echo "$all_releases $releases_page" | jq -s 'add')
+            page=$((page + 1))
+          done
+
+          echo "$all_releases" > existing_releases.json
+          echo "Total releases found: $(echo "$all_releases" | jq '. | length')"
 
           # 提取现有release的tag名称
           existing_tags=$(jq -r '.[].tag_name' existing_releases.json | sort)
