@@ -25,6 +25,7 @@ from plib.environment import (
     get_packet_path,
     get_packet_dist_path,
 )
+from plib.assert_version import update_assert_version_for_changed_addons
 from plib.language.converter import Converter
 
 
@@ -475,6 +476,43 @@ def __lint(packet: str, packet_path: str, diff_version: Optional[str] = None) ->
         print("\n提交信息规范检查通过！")
 
 
+def __update_assert_version(version_info: Dict[str, str]) -> None:
+    """
+    更新变更子插件中的 AssertVersion 调用到最新版本
+
+    参数：
+        version_info: 版本信息字典，包含当前版本和变更的子插件文件夹
+    """
+    current_version = version_info.get("current", "")
+    changed_folders = version_info.get("changed_addon_folders", [])
+
+    if not current_version:
+        print("Warning: No current version found, skipping AssertVersion update")
+        return
+
+    if not changed_folders:
+        print("No changed addon folders found, skipping AssertVersion update")
+        return
+
+    print(f"\n正在更新变更子插件的 AssertVersion 调用到版本 {current_version}...")
+    print(f"变更的子插件: {', '.join(changed_folders)}")
+
+    try:
+        files_updated, total_updates = update_assert_version_for_changed_addons(
+            current_version, force_changed=True
+        )
+
+        if total_updates > 0:
+            print(
+                f"AssertVersion 更新完成: 更新了 {files_updated} 个文件，共 {total_updates} 处更新"
+            )
+        else:
+            print("没有需要更新的 AssertVersion 调用")
+
+    except Exception as e:
+        print(f"Warning: AssertVersion 更新过程中出现错误: {e}")
+
+
 def __prepublish(packet: str, packet_path: str, diff_ver: Optional[str] = None) -> None:
     """
     发布前准备工作：
@@ -510,6 +548,7 @@ def __prepublish(packet: str, packet_path: str, diff_ver: Optional[str] = None) 
             == 1,
             f"错误：当前版本({version_info.get('current')})必须大于历史最大版本({version_info.get('max')})！",
         )
+        __update_assert_version(version_info)
         os.system(
             f'git add * && git commit -m "release: {version_info.get("current")}"'
         )
