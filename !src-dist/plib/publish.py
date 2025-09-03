@@ -249,106 +249,15 @@ def __get_version_info(packet: str, diff_ver: Optional[str] = None) -> Dict[str,
     """
     获取版本信息，包括当前版本、最新提交hash及历史版本记录，并从git提交信息中提取release记录。
 
+    此函数现在委托给 plib.git.get_version_info 来实现。
+
     参数：
         packet: 包标识（用于确定Base.lua路径）
         diff_ver: 指定对比版本（可选）
     返回：
-        包含以下字段的字典：
-            "current"           : 当前版本号（从 Base.lua 中获取）
-            "current_hash"      : 当前最新提交的短 hash
-            "max"               : 历史中最大的版本号
-            "previous"          : 上一版本号
-            "previous_message"  : 上一版本的提交信息
-            "previous_hash"     : 上一版本对应的提交 hash
+        包含版本信息的字典
     """
-    current_version: str = ""
-    base_file: str = f"{packet}_!Base/src/lib/Base.lua"
-    try:
-        with open(base_file, "r", encoding="gbk") as f:
-            for line in f:
-                if line.startswith("local _VERSION_ "):
-                    # 去掉前缀并移除引号
-                    current_version = re.sub(
-                        r"(?is)^local _VERSION_\s+=", "", line
-                    ).strip()[1:-1]
-                    break
-    except Exception as e:
-        utils.exit_with_message(f"读取Base.lua文件出错：{e}")
-
-    # 获取当前最新提交短hash
-    current_hash: str = utils.read_popen_output(
-        'git log -n 1 --pretty=format:"%h"'
-    ).strip()
-    # 获取所有包含 release 信息的提交记录（以 SUCCESS|<hash>|release: <version> 格式保存）
-    commit_list: List[str] = utils.read_popen_output(
-        'git log --grep release: --pretty=format:"SUCCESS|%h|%s"'
-    ).split("\n")
-    if diff_ver:
-        extra_commit: str = utils.read_popen_output(
-            f'git log {diff_ver} -n 1 --pretty=format:"SUCCESS|%h|%s"'
-        )
-        commit_list += extra_commit.split("\n")
-    commit_list = list(filter(lambda x: x and x.startswith("SUCCESS|"), commit_list))
-
-    max_version: str = ""
-    prev_version: str = ""
-    prev_version_message: str = ""
-    prev_version_hash: str = ""
-    # 遍历所有提交记录，提取版本号信息，使用 semver 进行版本比较
-    for commit in commit_list:
-        try:
-            parts: List[str] = commit.split("|")
-            if len(parts) < 3:
-                continue
-            version: str = re.sub(r"(?is)^release:\s+", "", parts[2]).strip()
-            version_message: str = parts[2].strip()
-            version_hash: str = parts[1].strip()
-            # 忽略与当前版本相同的记录
-            if semver.compare(version, current_version) == 0:
-                continue
-            if diff_ver:
-                # 若指定对比版本，且两个版本相同则赋值
-                if diff_ver == version and semver.compare(version, "0.0.0") == 1:
-                    max_version = version
-                    prev_version = version
-                    prev_version_message = version_message
-                    prev_version_hash = version_hash
-                    continue
-                if diff_ver.startswith(version_hash):
-                    max_version = "0.0.0"
-                    prev_version = "0.0.0"
-                    prev_version_message = version_message
-                    prev_version_hash = version_hash
-                    continue
-            else:
-                # 若无 diff_ver 指定，则取版本大于"0.0.0"且最大版本号更新的记录
-                if max_version == "" and semver.compare(version, "0.0.0") == 1:
-                    max_version = version
-                    prev_version = version
-                    prev_version_message = version_message
-                    prev_version_hash = version_hash
-                    continue
-                if (
-                    semver.compare(version, current_version) == -1
-                    and semver.compare(version, prev_version) == 1
-                ):
-                    prev_version = version
-                    prev_version_message = version_message
-                    prev_version_hash = version_hash
-                if semver.compare(version, max_version) == 1:
-                    max_version = version
-        except Exception:
-            # 忽略解析错误的记录
-            continue
-
-    return {
-        "current": current_version,
-        "current_hash": current_hash,
-        "max": max_version,
-        "previous": prev_version,
-        "previous_message": prev_version_message,
-        "previous_hash": prev_version_hash,
-    }
+    return git.get_version_info(packet, diff_ver)
 
 
 def __make_changelog(packet: str, packet_path: str, branch: str) -> None:
