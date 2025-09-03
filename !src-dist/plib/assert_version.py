@@ -9,7 +9,6 @@ import os
 import re
 from typing import List, Tuple
 
-import plib.utils as utils
 import plib.git as git
 from plib.semver import Semver, satisfies as semver_satisfies
 
@@ -87,9 +86,19 @@ def update_assert_version_in_file(
     返回：
         tuple: (是否有更新, 更新的数量)
     """
-    # 使用 utils.read_file 读取文件，自动处理编码问题
+    # 检测文件编码
+    encoding_used = "gbk"  # 默认使用 gbk
     try:
-        content = utils.read_file(file_path)
+        with open(file_path, "r", encoding="gbk", newline="") as f:
+            content = f.read()
+    except UnicodeDecodeError:
+        encoding_used = "utf-8"
+        try:
+            with open(file_path, "r", encoding="utf-8", newline="") as f:
+                content = f.read()
+        except Exception as e:
+            print(f"Warning: Cannot read file {file_path}: {e}")
+            return False, 0
     except Exception as e:
         print(f"Warning: Cannot read file {file_path}: {e}")
         return False, 0
@@ -122,14 +131,8 @@ def update_assert_version_in_file(
 
     if update_count > 0:
         try:
-            # 自动检测编码写回文件
-            encoding_used = "gbk"  # 默认使用 gbk
-            try:
-                content.encode("gbk")
-            except UnicodeEncodeError:
-                encoding_used = "utf-8"
-
-            with open(file_path, "w", encoding=encoding_used) as f:
+            # 使用相同的编码和 newline="" 参数写回文件，保持原始行尾符
+            with open(file_path, "w", encoding=encoding_used, newline="") as f:
                 f.write(updated_content)
             return True, update_count
         except Exception as e:
