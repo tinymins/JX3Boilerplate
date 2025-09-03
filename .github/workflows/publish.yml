@@ -106,6 +106,20 @@ jobs:
           sed -i "s/\(local _BUILD_\)\( *\)\(=\) *'[^']*'/\1\2\3 '${DATE}'/" Boilerplate_!Base/src/lib/Base.lua
           sed -i "s/\(local _VERSION_\)\( *\)\(=\) *'[^']*'/\1\2\3 '${NEW_VERSION}'/" Boilerplate_!Base/src/lib/Base.lua
 
+      - name: Update AssertVersion calls in Lua files
+        run: |
+          NEW_VERSION="${{ steps.calculate_version.outputs.new_version }}"
+          echo "🔍 Updating AssertVersion calls to version: $NEW_VERSION"
+          python3 \!src-dist/update_semver.py "$NEW_VERSION"
+
+          # 检查是否有文件被修改
+          if git diff --quiet; then
+            echo "✅ No AssertVersion calls needed to be updated"
+          else
+            echo "📝 Some AssertVersion calls have been updated:"
+            git diff --name-only
+          fi
+
       - name: Update CHANGELOG.md
         id: update_changelog
         run: |
