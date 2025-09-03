@@ -110,7 +110,7 @@ jobs:
         run: |
           NEW_VERSION="${{ steps.calculate_version.outputs.new_version }}"
           echo "🔍 Updating AssertVersion calls to version: $NEW_VERSION"
-          python3 \!src-dist/update_semver.py "$NEW_VERSION"
+          python3 \!src-dist/update_semver.py "$NEW_VERSION" --force-changed
 
           # 检查是否有文件被修改
           if git diff --quiet; then

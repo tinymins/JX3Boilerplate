@@ -6,16 +6,34 @@
 
 import os
 import re
-import sys
+import argparse
+from typing import List
+
+import plib.utils as utils
+import plib.git as git
 from plib.semver import Semver, satisfies as semver_satisfies
 
 
-def should_update_version_constraint(constraint, new_version):
+def should_update_version_constraint(constraint, new_version, force_update=False):
     """
     判断版本约束是否需要更新
     返回 (是否需要更新, 新的约束字符串)
+
+    参数：
+        constraint: 当前版本约束
+        new_version: 新版本号
+        force_update: 是否强制更新（忽略约束检查）
     """
     constraint = constraint.strip().strip("'\"")
+
+    # 不更新通配符版本要求，即使在强制更新模式下
+    if constraint == "*":
+        return False, constraint
+
+    if force_update:
+        # 强制更新模式，一律更新为 ^ 格式
+        new_constraint = f"^{new_version}"
+        return True, new_constraint
 
     try:
         # 使用我们的 semver 模块检查新版本是否满足约束
@@ -45,26 +63,21 @@ def find_lua_files(directory):
     return lua_files
 
 
-def update_assert_version_in_file(file_path, new_version):
+def update_assert_version_in_file(file_path, new_version, force_update=False):
     """
     更新单个文件中的AssertVersion调用
     返回 (是否有更新, 更新的数量)
+
+    参数：
+        file_path: 要更新的文件路径
+        new_version: 新版本号
+        force_update: 是否强制更新（忽略约束检查）
     """
-    # 尝试不同的编码读取文件
-    content = None
-    encoding_used = None
-
-    for encoding in ["gbk", "utf-8", "utf-8-sig"]:
-        try:
-            with open(file_path, "r", encoding=encoding) as f:
-                content = f.read()
-                encoding_used = encoding
-                break
-        except UnicodeDecodeError:
-            continue
-
-    if content is None:
-        print(f"Warning: Cannot read file {file_path} due to encoding issues")
+    # 使用 utils.read_file 读取文件，自动处理编码问题
+    try:
+        content = utils.read_file(file_path)
+    except Exception as e:
+        print(f"Warning: Cannot read file {file_path}: {e}")
         return False, 0
 
     # 匹配 AssertVersion 调用的正则表达式
@@ -81,7 +94,7 @@ def update_assert_version_in_file(file_path, new_version):
         suffix = match.group(3)
 
         should_update, new_constraint = should_update_version_constraint(
-            version_constraint, new_version
+            version_constraint, new_version, force_update
         )
 
         if should_update:
@@ -95,7 +108,13 @@ def update_assert_version_in_file(file_path, new_version):
 
     if update_count > 0:
         try:
-            # 使用相同的编码写回文件
+            # 自动检测编码写回文件
+            encoding_used = "gbk"  # 默认使用 gbk
+            try:
+                content.encode("gbk")
+            except UnicodeEncodeError:
+                encoding_used = "utf-8"
+
             with open(file_path, "w", encoding=encoding_used) as f:
                 f.write(updated_content)
             return True, update_count
@@ -110,28 +129,70 @@ def main():
     """
     主函数
     """
-    if len(sys.argv) != 2:
-        print("Usage: python update_semver.py <new_version>")
-        sys.exit(1)
+    # 创建命令行参数解析器
+    parser = argparse.ArgumentParser(
+        description="更新Lua文件中的AssertVersion调用版本号"
+    )
+    parser.add_argument("new_version", help="新版本号")
+    parser.add_argument(
+        "--diff",
+        type=str,
+        help="指定对比版本，只更新从该版本到当前提交之间变更的子插件",
+    )
+    parser.add_argument(
+        "--force-changed",
+        action="store_true",
+        help="对变更的子插件强制更新版本约束（忽略是否满足要求）",
+    )
 
-    new_version = sys.argv[1]
+    args = parser.parse_args()
+    new_version = args.new_version
 
     # 验证新版本格式
     try:
         Semver(new_version)
     except Exception:
-        print(f"Error: Invalid version format: {new_version}")
-        sys.exit(1)
+        utils.exit_with_message(f"Error: Invalid version format: {new_version}")
 
     # 获取当前目录
     current_dir = os.getcwd()
     print(f"Scanning Lua files in: {current_dir}")
     print(f"Target version: {new_version}")
-    print()
 
-    # 查找所有Lua文件
-    lua_files = find_lua_files(current_dir)
+    # 如果指定了 diff 参数或 force-changed，使用 git.get_version_info 获取版本信息
+    if args.diff or args.force_changed:
+        print("Getting version information...")
+
+        # 使用 git.get_version_info 获取版本信息
+        version_info = git.get_version_info(diff_ver=args.diff)
+
+        base_hash = version_info.get("previous_hash", "")
+        changed_folders = version_info.get("changed_addon_folders", [])
+
+        if base_hash:
+            print(f"Base version: {version_info.get('previous', '')} ({base_hash})")
+
+        if changed_folders:
+            print(f"Changed addon folders: {', '.join(changed_folders)}")
+            # 只处理变更的子插件文件夹中的 Lua 文件
+            lua_files = []
+            for folder in changed_folders:
+                folder_lua_files = find_lua_files(folder)
+                lua_files.extend(folder_lua_files)
+
+            # 对变更的子插件使用强制更新模式
+            force_update = args.force_changed
+        else:
+            print("No changed addon folders found")
+            lua_files = []
+            force_update = False
+    else:
+        # 没有指定 diff 参数，扫描所有 Lua 文件
+        lua_files = find_lua_files(current_dir)
+        force_update = False
+
     print(f"Found {len(lua_files)} Lua files")
+    print()
 
     total_files_updated = 0
     total_updates = 0
@@ -139,7 +200,7 @@ def main():
     # 处理每个文件
     for file_path in lua_files:
         file_updated, update_count = update_assert_version_in_file(
-            file_path, new_version
+            file_path, new_version, force_update
         )
         if file_updated:
             total_files_updated += 1
