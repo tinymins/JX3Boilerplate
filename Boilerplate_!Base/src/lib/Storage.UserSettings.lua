@@ -84,7 +84,6 @@ local USER_SETTINGS_INFO = {}
 local USER_SETTINGS_LIST = {}
 local USER_SETTINGS_LOCATION_OVERRIDE = {}
 local DATA_CACHE = {}
-local DATA_CACHE_LEAF_FLAG = {}
 local FLUSH_TIME = 0
 local DATABASE_CONNECTION_ESTABLISHED = false
 
@@ -504,20 +503,16 @@ end
 -- @param {string} szKey 配置项全局唯一键
 -- @param {string} szDataSetKey 配置项组（如用户多套自定义偏好）唯一键，当且仅当 szKey 对应注册项携带 bDataSet 标记位时有效
 -- @return 值
-function X.GetUserSettings(szKey, ...)
+function X.GetUserSettings(szKey, szDataSetKey)
 	-- 缓存加速
-	local cache = DATA_CACHE
-	for _, k in ipairs({szKey, ...}) do
-		if X.IsTable(cache) then
-			cache = cache[k]
-		end
-		if not X.IsTable(cache) then
-			cache = nil
-			break
-		end
-		if cache[1] == DATA_CACHE_LEAF_FLAG then
-			return cache[2]
-		end
+	local cache = DATA_CACHE[szKey]
+	if szDataSetKey then
+		cache = X.IsTable(cache) and cache.bDataSet
+			and cache[szDataSetKey]
+			or nil
+	end
+	if X.IsTable(cache) and cache.bValue then
+		return cache.xValue
 	end
 	-- 参数检查
 	local nParameter = select('#', ...) + 1
@@ -574,11 +569,19 @@ function X.GetUserSettings(szKey, ...)
 	-- 缓存
 	if info.bDataSet then
 		if not DATA_CACHE[szKey] then
-			DATA_CACHE[szKey] = {}
+			DATA_CACHE[szKey] = { bDataSet = true }
 		end
-		DATA_CACHE[szKey][szDataSetKey] = { DATA_CACHE_LEAF_FLAG, res, X.Clone(res) }
+		DATA_CACHE[szKey][szDataSetKey] = {
+			bValue = true,
+			xValue = res,
+			xRawValue = X.Clone(res),
+		}
 	else
-		DATA_CACHE[szKey] = { DATA_CACHE_LEAF_FLAG, res, X.Clone(res) }
+		DATA_CACHE[szKey] = {
+			bValue = true,
+			xValue = res,
+			xRawValue = X.Clone(res),
+		}
 	end
 	return res
 end
@@ -619,7 +622,7 @@ function X.SetUserSettings(szKey, ...)
 		end
 		xValue = ...
 	end
-	if cache and cache[1] == DATA_CACHE_LEAF_FLAG and X.IsEquals(cache[3], xValue) then
+	if cache and cache.bValue and X.IsEquals(cache.xRawValue, xValue) then
 		return
 	end
 	-- 数据校验
@@ -642,7 +645,7 @@ function X.SetUserSettings(szKey, ...)
 		else
 			xValue = { [szDataSetKey] = xValue }
 		end
-		if X.IsTable(DATA_CACHE[szKey]) then
+		if X.IsTable(DATA_CACHE[szKey]) and DATA_CACHE[szKey].bDataSet then
 			DATA_CACHE[szKey][szDataSetKey] = nil
 		end
 	else
@@ -713,7 +716,7 @@ function X.ResetUserSettings(szKey, ...)
 			else
 				SetInstanceInfoData(inst, info, res.d, info.szVersion)
 			end
-			if DATA_CACHE[szKey] then
+			if DATA_CACHE[szKey] and DATA_CACHE[szKey].bDataSet then
 				DATA_CACHE[szKey][szDataSetKey] = nil
 			end
 		else
