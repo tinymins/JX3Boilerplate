@@ -508,7 +508,7 @@ function X.GetUserSettings(szKey, szDataSetKey)
 	local cache = DATA_CACHE[szKey]
 	if szDataSetKey then
 		cache = X.IsTable(cache) and cache.bDataSet
-			and cache[szDataSetKey]
+			and cache.tDataSet[szDataSetKey]
 			or nil
 	end
 	if X.IsTable(cache) and cache.bValue then
@@ -569,9 +569,9 @@ function X.GetUserSettings(szKey, szDataSetKey)
 	-- »º´æ
 	if info.bDataSet then
 		if not DATA_CACHE[szKey] then
-			DATA_CACHE[szKey] = { bDataSet = true }
+			DATA_CACHE[szKey] = { bDataSet = true, tDataSet = {} }
 		end
-		DATA_CACHE[szKey][szDataSetKey] = {
+		DATA_CACHE[szKey].tDataSet[szDataSetKey] = {
 			bValue = true,
 			xValue = res,
 			xRawValue = X.Clone(res),
@@ -615,7 +615,7 @@ function X.SetUserSettings(szKey, ...)
 		if not X.IsString(szDataSetKey) and not X.IsNumber(szDataSetKey) then
 			assert(false, 'SetUserSettings KEY(' .. X.EncodeLUAData(szKey) .. '): `DataSetKey` should be a string or number value.')
 		end
-		cache = cache and cache[szDataSetKey]
+		cache = cache and cache.tDataSet[szDataSetKey]
 	else
 		if nParameter ~= 2 then
 			assert(false, 'SetUserSettings KEY(' .. X.EncodeLUAData(szKey) .. '): 2 parameters expected, got ' .. nParameter)
@@ -646,7 +646,7 @@ function X.SetUserSettings(szKey, ...)
 			xValue = { [szDataSetKey] = xValue }
 		end
 		if X.IsTable(DATA_CACHE[szKey]) and DATA_CACHE[szKey].bDataSet then
-			DATA_CACHE[szKey][szDataSetKey] = nil
+			DATA_CACHE[szKey].tDataSet[szDataSetKey] = nil
 		end
 	else
 		DATA_CACHE[szKey] = nil
@@ -717,7 +717,7 @@ function X.ResetUserSettings(szKey, ...)
 				SetInstanceInfoData(inst, info, res.d, info.szVersion)
 			end
 			if DATA_CACHE[szKey] and DATA_CACHE[szKey].bDataSet then
-				DATA_CACHE[szKey][szDataSetKey] = nil
+				DATA_CACHE[szKey].tDataSet[szDataSetKey] = nil
 			end
 		else
 			DeleteInstanceInfoData(inst, info)
