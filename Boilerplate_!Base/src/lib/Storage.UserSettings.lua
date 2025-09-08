@@ -504,6 +504,11 @@ end
 -- @param {string} szDataSetKey 配置项组（如用户多套自定义偏好）唯一键，当且仅当 szKey 对应注册项携带 bDataSet 标记位时有效
 -- @return 值
 function X.GetUserSettings(szKey, szDataSetKey)
+	local res, bData, bCache = nil, false, false
+	local info = USER_SETTINGS_INFO[szKey]
+	if not info then
+		assert(false, 'GetUserSettings KEY(' .. X.EncodeLUAData(szKey) .. '): `Key` has not been registered.')
+	end
 	-- 缓存加速
 	local cache = DATA_CACHE[szKey]
 	if szDataSetKey then
@@ -512,46 +517,45 @@ function X.GetUserSettings(szKey, szDataSetKey)
 			or nil
 	end
 	if X.IsTable(cache) and cache.bValue then
-		return cache.xValue
+		res, bData, bCache = cache.xValue, true, true
 	end
-	-- 参数检查
-	local nParameter = select('#', ...) + 1
-	local info = USER_SETTINGS_INFO[szKey]
-	if not info then
-		assert(false, 'GetUserSettings KEY(' .. X.EncodeLUAData(szKey) .. '): `Key` has not been registered.')
-	end
-	local inst = DATABASE_INSTANCE[info.ePathType]
-	if not inst then
-		assert(false, 'GetUserSettings KEY(' .. X.EncodeLUAData(szKey) .. '): Database not connected.')
-	end
-	local szDataSetKey
-	if info.bDataSet then
-		if nParameter ~= 2 then
-			assert(false, 'GetUserSettings KEY(' .. X.EncodeLUAData(szKey) .. '): 2 parameters expected, got ' .. nParameter)
+	-- 未命中缓存，从数据库读取
+	if not bCache then
+		-- 参数检查
+		local nParameter = select('#', ...) + 1
+		local inst = DATABASE_INSTANCE[info.ePathType]
+		if not inst then
+			assert(false, 'GetUserSettings KEY(' .. X.EncodeLUAData(szKey) .. '): Database not connected.')
 		end
-		szDataSetKey = ...
-		if not X.IsString(szDataSetKey) and not X.IsNumber(szDataSetKey) then
-			assert(false, 'GetUserSettings KEY(' .. X.EncodeLUAData(szKey) .. '): `DataSetKey` should be a string or number value.')
-		end
-	else
-		if nParameter ~= 1 then
-			assert(false, 'GetUserSettings KEY(' .. X.EncodeLUAData(szKey) .. '): 1 parameter expected, got ' .. nParameter)
-		end
-	end
-	-- 读数据库
-	local res, bData = GetInstanceInfoData(inst, info), false
-	if X.IsTable(res) and res.v == info.szVersion then
-		local data = res.d
+		local szDataSetKey
 		if info.bDataSet then
-			if X.IsTable(data) then
-				data = data[szDataSetKey]
-			else
-				data = nil
+			if nParameter ~= 2 then
+				assert(false, 'GetUserSettings KEY(' .. X.EncodeLUAData(szKey) .. '): 2 parameters expected, got ' .. nParameter)
+			end
+			szDataSetKey = ...
+			if not X.IsString(szDataSetKey) and not X.IsNumber(szDataSetKey) then
+				assert(false, 'GetUserSettings KEY(' .. X.EncodeLUAData(szKey) .. '): `DataSetKey` should be a string or number value.')
+			end
+		else
+			if nParameter ~= 1 then
+				assert(false, 'GetUserSettings KEY(' .. X.EncodeLUAData(szKey) .. '): 1 parameter expected, got ' .. nParameter)
 			end
 		end
-		if not info.xSchema or not X.Schema.CheckSchema(data, info.xSchema) then
-			bData = true
-			res = data
+		-- 读数据库
+		res, bData = GetInstanceInfoData(inst, info), false
+		if X.IsTable(res) and res.v == info.szVersion then
+			local data = res.d
+			if info.bDataSet then
+				if X.IsTable(data) then
+					data = data[szDataSetKey]
+				else
+					data = nil
+				end
+			end
+			if not info.xSchema or not X.Schema.CheckSchema(data, info.xSchema) then
+				bData = true
+				res = data
+			end
 		end
 	end
 	-- 默认值
@@ -566,22 +570,24 @@ function X.GetUserSettings(szKey, szDataSetKey)
 		end
 		res = X.Clone(res)
 	end
-	-- 缓存
-	if info.bDataSet then
-		if not DATA_CACHE[szKey] then
-			DATA_CACHE[szKey] = { bDataSet = true, tDataSet = {} }
+	-- 写入缓存
+	if not bCache then
+		if info.bDataSet then
+			if not DATA_CACHE[szKey] then
+				DATA_CACHE[szKey] = { bDataSet = true, tDataSet = {} }
+			end
+			DATA_CACHE[szKey].tDataSet[szDataSetKey] = {
+				bValue = true,
+				xValue = res,
+				xRawValue = X.Clone(res),
+			}
+		else
+			DATA_CACHE[szKey] = {
+				bValue = true,
+				xValue = res,
+				xRawValue = X.Clone(res),
+			}
 		end
-		DATA_CACHE[szKey].tDataSet[szDataSetKey] = {
-			bValue = true,
-			xValue = res,
-			xRawValue = X.Clone(res),
-		}
-	else
-		DATA_CACHE[szKey] = {
-			bValue = true,
-			xValue = res,
-			xRawValue = X.Clone(res),
-		}
 	end
 	return res
 end
