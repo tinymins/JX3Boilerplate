@@ -503,17 +503,33 @@ end
 -- @param {string} szKey 配置项全局唯一键
 -- @param {string} szDataSetKey 配置项组（如用户多套自定义偏好）唯一键，当且仅当 szKey 对应注册项携带 bDataSet 标记位时有效
 -- @return 值
-function X.GetUserSettings(szKey, szDataSetKey)
+function X.GetUserSettings(szKey, ...)
+	-- 参数检查
 	local res, bData, bCache = nil, false, false
 	local info = USER_SETTINGS_INFO[szKey]
 	if not info then
 		assert(false, 'GetUserSettings KEY(' .. X.EncodeLUAData(szKey) .. '): `Key` has not been registered.')
 	end
+	local nParameter = select('#', ...) + 1
+	local szDataSetKey
+	if info.bDataSet then
+		if nParameter ~= 2 then
+			assert(false, 'GetUserSettings KEY(' .. X.EncodeLUAData(szKey) .. '): 2 parameters expected, got ' .. nParameter)
+		end
+		szDataSetKey = ...
+		if not X.IsString(szDataSetKey) and not X.IsNumber(szDataSetKey) then
+			assert(false, 'GetUserSettings KEY(' .. X.EncodeLUAData(szKey) .. '): `DataSetKey` should be a string or number value.')
+		end
+	else
+		if nParameter ~= 1 then
+			assert(false, 'GetUserSettings KEY(' .. X.EncodeLUAData(szKey) .. '): 1 parameter expected, got ' .. nParameter)
+		end
+	end
 	-- 缓存加速
 	local cache = DATA_CACHE[szKey]
-	if szDataSetKey then
+	if info.bDataSet and ... then
 		cache = X.IsTable(cache) and cache.bDataSet
-			and cache.tDataSet[szDataSetKey]
+			and cache.tDataSet[...]
 			or nil
 	end
 	if X.IsTable(cache) and cache.bValue then
@@ -522,24 +538,9 @@ function X.GetUserSettings(szKey, szDataSetKey)
 	-- 未命中缓存，从数据库读取
 	if not bCache then
 		-- 参数检查
-		local nParameter = select('#', ...) + 1
 		local inst = DATABASE_INSTANCE[info.ePathType]
 		if not inst then
 			assert(false, 'GetUserSettings KEY(' .. X.EncodeLUAData(szKey) .. '): Database not connected.')
-		end
-		local szDataSetKey
-		if info.bDataSet then
-			if nParameter ~= 2 then
-				assert(false, 'GetUserSettings KEY(' .. X.EncodeLUAData(szKey) .. '): 2 parameters expected, got ' .. nParameter)
-			end
-			szDataSetKey = ...
-			if not X.IsString(szDataSetKey) and not X.IsNumber(szDataSetKey) then
-				assert(false, 'GetUserSettings KEY(' .. X.EncodeLUAData(szKey) .. '): `DataSetKey` should be a string or number value.')
-			end
-		else
-			if nParameter ~= 1 then
-				assert(false, 'GetUserSettings KEY(' .. X.EncodeLUAData(szKey) .. '): 1 parameter expected, got ' .. nParameter)
-			end
 		end
 		-- 读数据库
 		res, bData = GetInstanceInfoData(inst, info), false
