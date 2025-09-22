@@ -134,6 +134,7 @@ local PRESETS = {
 		'OnWndResize',
 		'OnWndResizeEnd',
 		'OnBindEvent',
+		'OnListNodeSelected',
 	},
 }
 local function FormatModuleProxy(options, name)
