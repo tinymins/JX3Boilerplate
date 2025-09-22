@@ -133,6 +133,7 @@ local PRESETS = {
 		'OnWndKeyDown',
 		'OnWndResize',
 		'OnWndResizeEnd',
+		'OnBindEvent',
 	},
 }
 local function FormatModuleProxy(options, name)
