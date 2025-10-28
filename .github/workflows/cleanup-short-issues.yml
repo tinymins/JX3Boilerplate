@@ -1,4 +1,4 @@
-name: Delete Spam Issues
+name: Close Spam Issues
 
 on:
   issues:
@@ -7,7 +7,7 @@ on:
     # 允许手动触发
 
 jobs:
-  delete-spam-issues:
+  close-spam-issues:
     runs-on: ubuntu-latest
 
     permissions:
@@ -18,147 +18,95 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Check token permissions
+      - name: Close spam issues with short descriptions
         env:
-          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN || secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          echo "Checking GitHub token permissions..."
+          echo "? Starting spam issue cleanup..."
 
-          # 检查当前用户权限
-          user_info=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
-            -H "Accept: application/vnd.github.v3+json" \
-            "https://api.github.com/user")
+          closed_count=0
 
-          username=$(echo "$user_info" | jq -r '.login')
-          echo "Running as user: $username"
+          # 使用 GitHub CLI 获取所有开放的 issues
+          echo "? Fetching open issues..."
 
-          # 检查仓库权限
-          repo_perms=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
-            -H "Accept: application/vnd.github.v3+json" \
-            "https://api.github.com/repos/$GITHUB_REPOSITORY" | jq -r '.permissions // {}')
+          # 获取所有开放的 issues (不包括 PR)
+          issues=$(gh issue list --state open --json number,title,body,author --limit 100)
 
-          echo "Repository permissions: $repo_perms"
-
-          if [ "${{ secrets.PAT_TOKEN }}" == "" ]; then
-            echo "??  Warning: Using default GITHUB_TOKEN which may not have delete permissions"
-            echo "? To fix: Create a Personal Access Token with 'repo' scope and add it as PAT_TOKEN secret"
-          else
-            echo "? Using custom PAT_TOKEN"
+          if [ "$(echo "$issues" | jq '. | length')" = "0" ]; then
+            echo "? No open issues found."
+            exit 0
           fi
 
-      - name: Delete spam issues with short descriptions
-        env:
-          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN || secrets.GITHUB_TOKEN }}
-        run: |
-          echo "Starting deletion of spam issues with short descriptions..."
+          echo "? Processing $(echo "$issues" | jq '. | length') issues..."
 
-          # 获取仓库的node ID (用于GraphQL删除操作)
-          repo_info=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
-            -H "Accept: application/vnd.github.v3+json" \
-            "https://api.github.com/repos/$GITHUB_REPOSITORY")
-          repo_node_id=$(echo "$repo_info" | jq -r '.node_id')
+          # 处理每个 issue
+          echo "$issues" | jq -r '.[] | @base64' | while read -r issue_data; do
+            issue=$(echo "$issue_data" | base64 --decode)
 
-          # 获取所有开放的issues
-          page=1
-          deleted_count=0
-          while true; do
-            echo "Fetching issues page $page..."
+            issue_number=$(echo "$issue" | jq -r '.number')
+            issue_title=$(echo "$issue" | jq -r '.title')
+            issue_body=$(echo "$issue" | jq -r '.body // ""')
+            issue_author=$(echo "$issue" | jq -r '.author.login')
 
-            issues=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
-              -H "Accept: application/vnd.github.v3+json" \
-              "https://api.github.com/repos/$GITHUB_REPOSITORY/issues?state=open&page=$page&per_page=100")
+            # 计算标题和描述长度（去除空白字符）
+            title_length=$(echo "$issue_title" | tr -d '[:space:]' | wc -c)
+            body_length=$(echo "$issue_body" | tr -d '[:space:]' | wc -c)
 
-            # 检查是否还有issues
-            issues_count=$(echo "$issues" | jq '. | length')
-            if [ "$issues_count" = "0" ]; then
-              break
-            fi
+            echo "? Issue #$issue_number: '$issue_title' by $issue_author"
+            echo "   ? Title: $title_length chars, Body: $body_length chars"
 
-            echo "Processing $issues_count issues from page $page..."
+            # 如果标题和描述都少于20个字符，则关闭issue
+            if [ "$title_length" -lt 20 ] && [ "$body_length" -lt 20 ]; then
+              echo "? Closing spam issue #$issue_number (title: $title_length chars, body: $body_length chars)"
 
-            # 遍历每个issue
-            echo "$issues" | jq -r '.[] | select(.pull_request == null) | @base64' | while read -r issue_data; do
-              issue=$(echo "$issue_data" | base64 --decode)
+              # 构建评论内容并写入临时文件
+              echo "? This issue has been automatically closed due to insufficient content." > /tmp/comment.txt
+              echo "" >> /tmp/comment.txt
+              echo "**Reason:** Both title and description are too short (less than 20 characters each)" >> /tmp/comment.txt
+              echo "- Title length: $title_length characters" >> /tmp/comment.txt
+              echo "- Description length: $body_length characters" >> /tmp/comment.txt
+              echo "" >> /tmp/comment.txt
+              echo "Please provide more detailed information when creating issues. If this was closed in error, feel free to reopen with additional details." >> /tmp/comment.txt
+              echo "" >> /tmp/comment.txt
+              echo "@tinymins" >> /tmp/comment.txt
 
-              issue_number=$(echo "$issue" | jq -r '.number')
-              issue_title=$(echo "$issue" | jq -r '.title')
-              issue_body=$(echo "$issue" | jq -r '.body // ""')
-              issue_user=$(echo "$issue" | jq -r '.user.login')
-              issue_node_id=$(echo "$issue" | jq -r '.node_id')
+              # 使用 GitHub CLI 添加评论
+              if gh issue comment "$issue_number" --body-file /tmp/comment.txt; then
+                echo "? Added comment to issue #$issue_number"
 
-              # 计算标题和描述长度（去除空白字符）
-              title_length=$(echo "$issue_title" | tr -d '[:space:]' | wc -c)
-              body_length=$(echo "$issue_body" | tr -d '[:space:]' | wc -c)
-
-              echo "Issue #$issue_number: '$issue_title' by $issue_user (title: $title_length chars, body: $body_length chars)"
-
-              # 如果标题和描述都少于20个字符，则删除issue
-              if [ "$title_length" -lt 20 ] && [ "$body_length" -lt 20 ]; then
-                echo "??  Attempting to delete spam issue #$issue_number due to short title ($title_length chars) and description ($body_length chars)"
-
-                # 首先尝试关闭issue（如果删除失败的话）
-                close_result=$(curl -s -X PATCH \
-                  -H "Authorization: token $GITHUB_TOKEN" \
-                  -H "Accept: application/vnd.github.v3+json" \
-                  -H "Content-Type: application/json" \
-                  "https://api.github.com/repos/$GITHUB_REPOSITORY/issues/$issue_number" \
-                  -d '{"state": "closed", "state_reason": "not_planned"}')
-
-                # 使用GraphQL API删除issue
-                delete_mutation='{
-                  "query": "mutation { deleteIssue(input: {issueId: \"'$issue_node_id'\"}) { clientMutationId } }"
-                }'
-
-                delete_result=$(curl -s -X POST \
-                  -H "Authorization: token $GITHUB_TOKEN" \
-                  -H "Accept: application/vnd.github.v4+json" \
-                  -H "Content-Type: application/json" \
-                  "https://api.github.com/graphql" \
-                  -d "$delete_mutation")
-
-                # 检查删除结果
-                if echo "$delete_result" | jq -e '.data.deleteIssue' > /dev/null; then
-                  echo "? Issue #$issue_number has been successfully deleted"
-                  deleted_count=$((deleted_count + 1))
+                # 关闭 issue
+                if gh issue close "$issue_number" --reason "not planned"; then
+                  echo "? Closed issue #$issue_number"
+                  closed_count=$((closed_count + 1))
                 else
-                  error_msg=$(echo "$delete_result" | jq -r '.errors[0].message // "Unknown error"')
-                  echo "? Failed to delete issue #$issue_number"
-                  echo "   Error: $error_msg"
-
-                  # 检查是否至少成功关闭了
-                  if echo "$close_result" | jq -e '.state == "closed"' > /dev/null; then
-                    echo "? Issue #$issue_number was closed instead"
-                  else
-                    echo "? Failed to close issue #$issue_number as well"
-                  fi
+                  echo "? Failed to close issue #$issue_number"
                 fi
               else
-                echo "Issue #$issue_number has sufficient content (title: $title_length chars, body: $body_length chars), keeping it"
+                echo "? Failed to add comment to issue #$issue_number"
               fi
-            done
+            else
+              echo "? Issue #$issue_number has sufficient content, keeping open"
+            fi
 
-            page=$((page + 1))
+            echo "---"
           done
 
-          echo "Spam cleanup completed. Deleted $deleted_count issues."
+          echo "? Spam cleanup completed. Closed $closed_count issues."
 
-      - name: Report deletion summary
+      - name: Report cleanup summary
         if: github.event_name == 'workflow_dispatch'
-        env:
-          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN || secrets.GITHUB_TOKEN }}
         run: |
-          echo "? Spam issue cleanup workflow completed"
+          echo "? Spam issue cleanup workflow completed successfully!"
           echo ""
-          echo "? This workflow automatically processes issues with BOTH title and description shorter than 20 characters"
-          echo "??  If deletion permission is available: DELETES the issues"
-          echo "? If deletion permission is not available: CLOSES the issues"
-          echo "??  DELETED issues cannot be recovered!"
+          echo "? This workflow automatically CLOSES issues with insufficient content:"
+          echo "   - Both title AND description must be shorter than 20 characters"
+          echo "   - Issues are closed with 'not planned' reason"
+          echo "   - A comment is added explaining the closure"
+          echo "   - @tinymins is notified in the comment"
           echo ""
-          echo "? This workflow runs on:"
-          echo "   - New issues being opened (immediate processing of spam)"
-          echo "   - Issues being edited (processing if edited to become too short)"
-          echo "   - Manual trigger (on-demand cleanup)"
+          echo "? This workflow runs automatically on:"
+          echo "   ? New issues being opened (immediate spam detection)"
+          echo "   ??  Issues being edited (re-evaluation of content)"
+          echo "   ? Manual trigger (batch cleanup via Actions tab)"
           echo ""
-          echo "? To enable deletion:"
-          echo "   1. Create a Personal Access Token with 'repo' scope"
-          echo "   2. Add it as a repository secret named 'PAT_TOKEN'"
+          echo "? Closed issues can be reopened if they were closed in error."
