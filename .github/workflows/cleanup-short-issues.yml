@@ -18,9 +18,37 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Check token permissions
+        env:
+          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN || secrets.GITHUB_TOKEN }}
+        run: |
+          echo "Checking GitHub token permissions..."
+
+          # 检查当前用户权限
+          user_info=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
+            -H "Accept: application/vnd.github.v3+json" \
+            "https://api.github.com/user")
+
+          username=$(echo "$user_info" | jq -r '.login')
+          echo "Running as user: $username"
+
+          # 检查仓库权限
+          repo_perms=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
+            -H "Accept: application/vnd.github.v3+json" \
+            "https://api.github.com/repos/$GITHUB_REPOSITORY" | jq -r '.permissions // {}')
+
+          echo "Repository permissions: $repo_perms"
+
+          if [ "${{ secrets.PAT_TOKEN }}" == "" ]; then
+            echo "??  Warning: Using default GITHUB_TOKEN which may not have delete permissions"
+            echo "? To fix: Create a Personal Access Token with 'repo' scope and add it as PAT_TOKEN secret"
+          else
+            echo "? Using custom PAT_TOKEN"
+          fi
+
       - name: Delete spam issues with short descriptions
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN || secrets.GITHUB_TOKEN }}
         run: |
           echo "Starting deletion of spam issues with short descriptions..."
 
@@ -66,7 +94,15 @@ jobs:
 
               # 如果标题和描述都少于20个字符，则删除issue
               if [ "$title_length" -lt 20 ] && [ "$body_length" -lt 20 ]; then
-                echo "Deleting spam issue #$issue_number due to short title ($title_length chars) and description ($body_length chars)"
+                echo "??  Attempting to delete spam issue #$issue_number due to short title ($title_length chars) and description ($body_length chars)"
+
+                # 首先尝试关闭issue（如果删除失败的话）
+                close_result=$(curl -s -X PATCH \
+                  -H "Authorization: token $GITHUB_TOKEN" \
+                  -H "Accept: application/vnd.github.v3+json" \
+                  -H "Content-Type: application/json" \
+                  "https://api.github.com/repos/$GITHUB_REPOSITORY/issues/$issue_number" \
+                  -d '{"state": "closed", "state_reason": "not_planned"}')
 
                 # 使用GraphQL API删除issue
                 delete_mutation='{
@@ -82,11 +118,19 @@ jobs:
 
                 # 检查删除结果
                 if echo "$delete_result" | jq -e '.data.deleteIssue' > /dev/null; then
-                  echo "Issue #$issue_number has been successfully deleted"
+                  echo "? Issue #$issue_number has been successfully deleted"
                   deleted_count=$((deleted_count + 1))
                 else
-                  echo "Failed to delete issue #$issue_number"
-                  echo "Error: $(echo "$delete_result" | jq -r '.errors[0].message // "Unknown error"')"
+                  error_msg=$(echo "$delete_result" | jq -r '.errors[0].message // "Unknown error"')
+                  echo "? Failed to delete issue #$issue_number"
+                  echo "   Error: $error_msg"
+
+                  # 检查是否至少成功关闭了
+                  if echo "$close_result" | jq -e '.state == "closed"' > /dev/null; then
+                    echo "? Issue #$issue_number was closed instead"
+                  else
+                    echo "? Failed to close issue #$issue_number as well"
+                  fi
                 fi
               else
                 echo "Issue #$issue_number has sufficient content (title: $title_length chars, body: $body_length chars), keeping it"
@@ -101,12 +145,20 @@ jobs:
       - name: Report deletion summary
         if: github.event_name == 'workflow_dispatch'
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN || secrets.GITHUB_TOKEN }}
         run: |
-          echo "Spam issue deletion workflow completed successfully"
-          echo "This workflow automatically DELETES issues with BOTH title and description shorter than 20 characters"
+          echo "? Spam issue cleanup workflow completed"
+          echo ""
+          echo "? This workflow automatically processes issues with BOTH title and description shorter than 20 characters"
+          echo "??  If deletion permission is available: DELETES the issues"
+          echo "? If deletion permission is not available: CLOSES the issues"
           echo "??  DELETED issues cannot be recovered!"
-          echo "It runs on:"
-          echo "- New issues being opened (immediate deletion of spam)"
-          echo "- Issues being edited (deletion if edited to become too short)"
-          echo "- Manual trigger (on-demand cleanup)"
+          echo ""
+          echo "? This workflow runs on:"
+          echo "   - New issues being opened (immediate processing of spam)"
+          echo "   - Issues being edited (processing if edited to become too short)"
+          echo "   - Manual trigger (on-demand cleanup)"
+          echo ""
+          echo "? To enable deletion:"
+          echo "   1. Create a Personal Access Token with 'repo' scope"
+          echo "   2. Add it as a repository secret named 'PAT_TOKEN'"
