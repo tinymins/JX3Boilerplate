@@ -936,6 +936,18 @@ local CONSTANT = {
 		[TEAM_MARK.DART ] = _L['TEAM_MARK_DART' ],
 		[TEAM_MARK.FAN  ] = _L['TEAM_MARK_FAN'  ],
 	},
+	WORLD_MARK = {
+		{ nIndex = 1 , dwNpcTemplateID = 20107, tColor = { 255, 255, 255 } },
+		{ nIndex = 2 , dwNpcTemplateID = 20108, tColor = { 255, 128, 0   } },
+		{ nIndex = 3 , dwNpcTemplateID = 20109, tColor = { 0  , 0  , 255 } },
+		{ nIndex = 4 , dwNpcTemplateID = 20110, tColor = { 0  , 255, 0   } },
+		{ nIndex = 5 , dwNpcTemplateID = 20111, tColor = { 255, 0  , 0   } },
+		{ nIndex = 6 , dwNpcTemplateID = 36781, tColor = { 50 , 220, 255 } },
+		{ nIndex = 7 , dwNpcTemplateID = 36782, tColor = { 255, 100, 220 } },
+		{ nIndex = 8 , dwNpcTemplateID = 36783, tColor = { 255, 255, 0   } },
+		{ nIndex = 9 , dwNpcTemplateID = 36784, tColor = { 200, 40,  255 } },
+		{ nIndex = 10, dwNpcTemplateID = 36785, tColor = { 30,  255, 180 } },
+	},
 	CLIENT_VERSION_TYPE = _G.CLIENT_VERSION_TYPE or X.FreezeTable({
 		NORMAL                 = 0,
 		WEGAME                 = 1,
