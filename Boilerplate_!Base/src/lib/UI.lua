@@ -6075,7 +6075,8 @@ end
 function OO:BringToTop()
 	self:_checksum()
 	for _, raw in ipairs(self.raws) do
-		raw = GetComponentElement(raw, 'MAIN_WINDOW')
+		raw = GetComponentElement(raw, 'WND')
+			or GetComponentElement(raw, 'MAIN_WINDOW')
 		if raw then
 			raw:BringToTop()
 		end
@@ -6087,7 +6088,8 @@ end
 function OO:BringToBottom()
 	self:_checksum()
 	for _, raw in ipairs(self.raws) do
-		raw = GetComponentElement(raw, 'MAIN_WINDOW')
+		raw = GetComponentElement(raw, 'WND')
+			or GetComponentElement(raw, 'MAIN_WINDOW')
 		if raw then
 			local parent = raw:GetParent()
 			if parent then
