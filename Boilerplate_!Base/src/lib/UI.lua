@@ -5923,6 +5923,7 @@ function OO:Align(alignHorizontal, alignVertical)
 	if alignVertical or alignHorizontal then
 		for _, raw in ipairs(self.raws) do
 			raw = GetComponentElement(raw, 'TEXT')
+				or GetComponentElement(raw, 'EDIT')
 				or GetComponentElement(raw, 'MAIN_HANDLE')
 			if raw then
 				if alignHorizontal and raw.SetHAlign then
