@@ -188,7 +188,7 @@ X.UI.FRAME_THEME = X.FreezeTable({
 	EMPTY  = 'empty' , -- ¿Õ°×´°Ìå
 })
 X.UI.LAYER_LIST = {'Lowest', 'Lowest1', 'Lowest2', 'Normal', 'Normal1', 'Normal2', 'Topmost', 'Topmost1', 'Topmost2'}
-X.UI.IS_GLASSMORPHISM = IsFileExist('ui\\Image\\denglu\\Sign_BdCommon.UITex')
+X.UI.IS_GLASSMORPHISM = IsFileExist('ui\\Image\\denglu\\Sign_BdCommon.UITex') and not X.IS_CLASSIC
 
 local BUTTON_STYLE_CONFIG = {
 	DEFAULT = {
