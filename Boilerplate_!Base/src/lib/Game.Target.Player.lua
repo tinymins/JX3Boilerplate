@@ -314,6 +314,13 @@ function X.ExtractPlayerBaseName(szName)
 	return (X.DisassemblePlayerName(szName))
 end
 
+-- 格式化原始角色名
+---@param szName string @角色名
+---@return string @角色被系统强制改名前的原始角色名
+function X.ExtractPlayerInitialName(szName)
+	return szName:gsub('[@%d].*$', '')
+end
+
 --------------------------------------------------------------------------------
 -- 其他角色装备信息相关
 --------------------------------------------------------------------------------
