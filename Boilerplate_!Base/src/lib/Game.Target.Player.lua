@@ -141,8 +141,8 @@ function X.GetClientPlayerCharInfo()
 		szName = me.szName,
 		dwForceID = me.dwForceID,
 		nEquipScore = me.GetTotalEquipScore() or 0,
-		dwMountKungfuID = kungfu and kungfu.dwSkillID or 0,
-		dwActualMountKungfuID = kungfu and kungfu.dwSkillID or 0,
+		dwKungfuID = kungfu and kungfu.dwSkillID or 0,
+		dwActualKungfuID = kungfu and kungfu.dwSkillID or 0,
 	}
 	if CharInfoMore_GetShowValue then
 		local aCategory, aContent, tTip = CharInfoMore_GetShowValue()
