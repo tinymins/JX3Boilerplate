@@ -200,9 +200,9 @@ local function RequestTeammateGlobalID()
 	local nTime = GetTime()
 	local aRequestGlobalID = {}
 	for _, dwTarID in ipairs(team.GetTeamMemberList()) do
-		local info = team.GetMemberInfo(dwTarID)
+		local info = X.GetTeamMemberInfo(dwTarID)
 		if not PLAYER_GLOBAL_ID[dwTarID]
-		and (info and info.bIsOnLine)
+		and (info and info.bOnline)
 		and (not REQUEST_TIME[dwTarID] or nTime - REQUEST_TIME[dwTarID] > 2000) then
 			table.insert(aRequestGlobalID, dwTarID)
 			REQUEST_TIME[dwTarID] = nTime

@@ -165,7 +165,7 @@ function X.OutputTeamMemberTip(Rect, dwID, szExtraXml)
 	table.insert(xml, GetFormatImage(szPath, nFrame, 22, 22))
 	-- Ãû×Ö
 	table.insert(xml, GetFormatText(FormatString(g_tStrings.STR_NAME_PLAYER, tMemberInfo.szName), 80, r, g, b))
-	if tMemberInfo.bIsOnLine then
+	if tMemberInfo.bOnline then
 		local p = X.GetPlayer(dwID)
 		if p and p.dwTongID > 0 then
 			if X.GetTongName(p.dwTongID) then
