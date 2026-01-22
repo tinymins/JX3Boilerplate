@@ -50,6 +50,11 @@ local CODE_PAGE = {
 	GBK = 936,
 }
 
+local IETF_BCP_47 = {
+	zhcn = 'zh-CN',
+	zhtw = 'zh-TW',
+}
+
 local _NAME_SPACE_            = 'Boilerplate'
 local _BUILD_                 = '19700101'
 local _VERSION_               = '0.0.0'
@@ -106,6 +111,7 @@ local X = {
 	ENVIRONMENT = setmetatable({}, {
 		__index = setmetatable({
 			GAME_LANG = _GAME_LANG_,
+			GAME_LOCALE = IETF_BCP_47[_GAME_LANG_] or 'en-US',
 			GAME_BRANCH = _GAME_BRANCH_,
 			GAME_EDITION = _GAME_EDITION_,
 			GAME_VERSION = _GAME_VERSION_,
