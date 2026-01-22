@@ -35,7 +35,7 @@ function X.GetFontList()
 			local szKey = szFontFile:lower()
 			if not tExist[szKey] then
 				table.insert(aList, {
-					szName = szFile,
+					szName = szFile:gsub('%..+$', ''),
 					szFile = szFontFile,
 				})
 				tExist[szKey] = true
