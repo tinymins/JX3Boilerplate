@@ -117,10 +117,7 @@ function D.ShowDetail(tSeg)
 	if not tSeg then
 		return
 	end
-	local szDetailName = X.NSFormatString('{$NS}_BgMsgSegmentViewer_Detail')
-	if _G[szDetailName] and _G[szDetailName].Open then
-		_G[szDetailName].Open(tSeg)
-	end
+	_G[X.NSFormatString('{$NS}_BgMsgSegmentViewer_Detail')].Open(tSeg)
 end
 
 -- 打开界面

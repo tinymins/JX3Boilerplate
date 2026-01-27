@@ -175,10 +175,7 @@ function D.Open()
 		x = nX, y = 50, w = 120, h = 25,
 		text = _L['Segment Viewer'],
 		onClick = function()
-			local szSegmentViewerName = X.NSFormatString('{$NS}_BgMsgSegmentViewer')
-			if _G[szSegmentViewerName] and _G[szSegmentViewerName].Open then
-				_G[szSegmentViewerName].Open()
-			end
+			_G[X.NSFormatString('{$NS}_BgMsgSegmentViewer')].Open()
 		end,
 	})
 	nX = nX + 130
@@ -187,10 +184,7 @@ function D.Open()
 		x = nX, y = 50, w = 120, h = 25,
 		text = _L['BgMsg Sender'],
 		onClick = function()
-			local szSenderName = X.NSFormatString('{$NS}_BgMsgSender')
-			if _G[szSenderName] and _G[szSenderName].Open then
-				_G[szSenderName].Open()
-			end
+			_G[X.NSFormatString('{$NS}_BgMsgSender')].Open()
 		end,
 	})
 	-- 表格
@@ -201,6 +195,47 @@ function D.Open()
 		h = nH - 95,
 		onRowLClick = function(rec, nIndex)
 			D.ShowDetail(rec.rec)
+		end,
+		onRowRClick = function(rec, nIndex)
+			if not rec or not rec.rec then
+				return
+			end
+			local r = rec.rec
+			local menu = {
+				{
+					szOption = _L['Replay'],
+					fnAction = function()
+						local szData = ''
+						if r.oData ~= nil then
+							szData = X.EncodeLUAData(r.oData, '  ')
+						end
+						-- 处理频道和目标
+						local nChannel = type(r.nChannel) == 'number' and r.nChannel or PLAYER_TALK_CHANNEL.WHISPER
+						local szTarget = r.szTarget or ''
+						-- 如果是密聊且目标为空，用发送者名字作为目标（回复）
+						if X.IsEmpty(szTarget) and nChannel == PLAYER_TALK_CHANNEL.WHISPER then
+							szTarget = r.szName or ''
+						end
+						-- 如果原始频道是字符串（密聊目标名），也用它作为目标
+						if type(r.nChannel) == 'string' then
+							szTarget = r.nChannel
+						end
+						_G[X.NSFormatString('{$NS}_BgMsgSender')].Open({
+							nChannel = nChannel,
+							szTarget = szTarget,
+							szMsgID = r.szMsgID or '',
+							szData = szData,
+						})
+					end,
+				},
+				{
+					szOption = _L['View Detail'],
+					fnAction = function()
+						D.ShowDetail(r)
+					end,
+				},
+			}
+			PopupMenu(menu)
 		end,
 		columns = {
 			{

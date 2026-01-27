@@ -22,6 +22,8 @@ return {
 	['MsgID'] = '消息ID',
 	['Sender'] = '发送者',
 	['Preview'] = '预览',
+	['Replay'] = '重放',
+	['View Detail'] = '查看详情',
 
 	-- Dev_BgMsgViewer_Detail.lua
 	['BgMsgDetail'] = '背景消息详情',
