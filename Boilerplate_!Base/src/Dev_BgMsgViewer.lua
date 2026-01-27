@@ -294,6 +294,7 @@ function D.Open()
 				title = _L['MsgID'],
 				alignHorizontal = 'left',
 				width = 200,
+				overflow = 'hidden',
 				render = function(value, record)
 					local r, g, b = D.GetRecordColor(record)
 					return GetFormatText(' ' .. tostring(value), 162, r, g, b)
