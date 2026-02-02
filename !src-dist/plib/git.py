@@ -20,6 +20,16 @@ from plib.semver import Semver
 from plib.environment import get_current_packet_id
 
 
+def __decode_bytes(data: bytes) -> str:
+    """
+    解码字节数据，优先使用 UTF-8，失败后回退到 GBK（中文Windows系统）。
+    """
+    try:
+        return data.decode("utf-8")
+    except UnicodeDecodeError:
+        return data.decode("gbk", errors="replace")
+
+
 def is_available() -> bool:
     """
     检测当前目录是否是有效的 Git 仓库。
@@ -37,9 +47,8 @@ def is_available() -> bool:
             check=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            text=True,
         )
-        return result.stdout.strip().lower() == "true"
+        return __decode_bytes(result.stdout).strip().lower() == "true"
     except (subprocess.CalledProcessError, FileNotFoundError, OSError):
         return False
 
@@ -58,10 +67,9 @@ def is_clean() -> bool:
             check=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            text=True,
         )
         # 将输出按行拆分
-        status_lines: List[str] = result.stdout.strip().splitlines()
+        status_lines: List[str] = __decode_bytes(result.stdout).strip().splitlines()
         if not status_lines:
             return False
         # 判断最后一行是否包含“nothing to commit, working tree clean”
@@ -84,9 +92,8 @@ def get_current_branch() -> str:
             check=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            text=True,
         )
-        branch_lines: List[str] = result.stdout.strip().splitlines()
+        branch_lines: List[str] = __decode_bytes(result.stdout).strip().splitlines()
         for line in branch_lines:
             if line.startswith("*"):
                 return line[2:].strip()
@@ -109,18 +116,16 @@ def get_head_time_tag() -> str:
             check=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            text=True,
         )
-        commit_hash: str = result_hash.stdout.strip()
+        commit_hash: str = __decode_bytes(result_hash.stdout).strip()
 
         result_date = subprocess.run(
             ["git", "log", "-1", "--format=%cd", "--date=format:%Y%m%d%H%M%S"],
             check=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            text=True,
         )
-        commit_date: str = result_date.stdout.strip()
+        commit_date: str = __decode_bytes(result_date.stdout).strip()
 
         return f"{commit_date}-{commit_hash}"
     except (subprocess.CalledProcessError, FileNotFoundError, OSError):

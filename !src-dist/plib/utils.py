@@ -9,6 +9,25 @@ from typing import NoReturn
 import subprocess
 
 
+def decode_bytes(
+    data: bytes, primary_encoding: str = "utf-8", fallback_encoding: str = "gbk"
+) -> str:
+    """
+    尝试使用主要编码解码字节数据，如果失败则尝试使用备用编码。
+
+    参数：
+        data: 要解码的字节数据
+        primary_encoding: 首选编码（默认UTF-8）
+        fallback_encoding: 备用编码（默认GBK，用于中文Windows系统）
+    返回：
+        解码后的字符串
+    """
+    try:
+        return data.decode(primary_encoding)
+    except UnicodeDecodeError:
+        return data.decode(fallback_encoding, errors="replace")
+
+
 def read_popen_output(command: str) -> str:
     """
     执行命令并读取输出。
@@ -24,8 +43,8 @@ def read_popen_output(command: str) -> str:
         ) as process:
             output, error = process.communicate()
             if error:
-                raise RuntimeError(f"命令执行错误: {error.decode('utf-8')}")
-            return output.decode("utf-8")
+                raise RuntimeError(f"命令执行错误: {decode_bytes(error)}")
+            return decode_bytes(output)
     except Exception as e:
         exit_with_message(f"执行命令失败: {e}")
 
