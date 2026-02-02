@@ -26,6 +26,22 @@ jobs:
       url: ${{ github.server_url }}/${{ github.repository }}/releases/tag/v${{ steps.calculate_version.outputs.new_version }}
 
     steps:
+      - name: Validate inputs
+        run: |
+          echo "📋 原始输入参数:"
+          echo "  - 版本发布类型: ${{ github.event.inputs.version_type }}"
+          echo "  - 更新日志: ${{ github.event.inputs.changelog }}"
+          echo ""
+
+          CHANGELOG="${{ github.event.inputs.changelog }}"
+          # Trim whitespace and check if empty
+          TRIMMED=$(echo "$CHANGELOG" | xargs)
+          if [ -z "$TRIMMED" ]; then
+            echo "::error::更新日志不能为空或仅包含空格字符"
+            exit 1
+          fi
+          echo "✅ 输入验证通过"
+
       - name: Checkout full repo
         uses: actions/checkout@v4
         with:
