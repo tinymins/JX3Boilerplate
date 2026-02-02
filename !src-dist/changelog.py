@@ -20,6 +20,7 @@
 """
 
 import argparse
+import configparser
 import os
 import re
 import sys
@@ -44,6 +45,15 @@ def get_changelog_path() -> str:
     """获取 CHANGELOG.md 文件路径"""
     packet_path = get_packet_path()
     return os.path.join(packet_path, "CHANGELOG.md")
+
+
+def get_packet_name() -> str:
+    """从 package.ini 获取插件集名称"""
+    packet_path = get_packet_path()
+    package_ini_path = os.path.join(packet_path, "package.ini")
+    config = configparser.ConfigParser()
+    config.read(package_ini_path, encoding="utf-8")
+    return config.get("Package", "name", fallback=get_current_packet_id() + "插件集")
 
 
 def read_current_version() -> str:
@@ -211,7 +221,7 @@ def update_changelog(new_version: str, changelog_lines: List[str]) -> str:
         生成的更新日志内容（用于输出）
     """
     changelog_path = get_changelog_path()
-    packet_id = get_current_packet_id()
+    packet_name = get_packet_name()
 
     # 读取现有内容
     with open(changelog_path, "r", encoding="utf-8") as f:
@@ -219,7 +229,7 @@ def update_changelog(new_version: str, changelog_lines: List[str]) -> str:
 
     # 构建新的更新日志条目
     new_entry_lines = [
-        f"## {packet_id}插件集 v{new_version}\n",
+        f"## {packet_name} v{new_version}\n",
         "\n",
     ]
     for line in changelog_lines:
@@ -242,7 +252,7 @@ def update_changelog(new_version: str, changelog_lines: List[str]) -> str:
         f.writelines(new_content)
 
     # 返回生成的更新日志内容（不含标题）
-    generated_changelog = f"## {packet_id}插件集 v{new_version}\n\n"
+    generated_changelog = f"## {packet_name} v{new_version}\n\n"
     generated_changelog += "\n".join(changelog_lines)
 
     print("✅ CHANGELOG.md 已更新")
