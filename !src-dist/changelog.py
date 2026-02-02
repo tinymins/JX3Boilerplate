@@ -52,7 +52,10 @@ def get_packet_name() -> str:
     packet_path = get_packet_path()
     package_ini_path = os.path.join(packet_path, "package.ini")
     config = configparser.ConfigParser()
-    config.read(package_ini_path, encoding="utf-8")
+    try:
+        config.read(package_ini_path, encoding="gbk")
+    except UnicodeDecodeError:
+        config.read(package_ini_path, encoding="utf-8")
     return config.get("Package", "name", fallback=get_current_packet_id() + "插件集")
 
 
