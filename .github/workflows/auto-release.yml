@@ -67,6 +67,14 @@ jobs:
           # 获取tag的完整注释信息
           TAG_MESSAGE=$(git tag -l --format='%(contents)' "$TAG")
 
+          echo "=== DEBUG: Raw TAG_MESSAGE ==="
+          echo "$TAG_MESSAGE"
+          echo "=== DEBUG: TAG_MESSAGE in hex ==="
+          echo "$TAG_MESSAGE" | head -1 | xxd | head -5
+          echo "=== DEBUG: Line count ==="
+          echo "$TAG_MESSAGE" | wc -l
+          echo "==="
+
           if [ -z "$TAG_MESSAGE" ]; then
             echo "Error: No tag message found for $TAG"
             echo "Please create tag with proper release notes"
@@ -74,11 +82,20 @@ jobs:
           fi
 
           echo "Found tag message for $TAG"
+
           # 提取从 "Release vX.X.X" 开始的所有内容作为release notes
-          RELEASE_NOTES=$(echo "$TAG_MESSAGE" | sed -n '/^Release v/,$p')
+          # 使用更宽松的匹配，允许行首有空格
+          RELEASE_NOTES=$(echo "$TAG_MESSAGE" | sed -n '/Release v/,$p')
+
+          echo "=== DEBUG: RELEASE_NOTES after sed ==="
+          echo "$RELEASE_NOTES"
+          echo "=== DEBUG: RELEASE_NOTES length ==="
+          echo "${#RELEASE_NOTES}"
+          echo "==="
 
           if [ -z "$RELEASE_NOTES" ]; then
             # 如果没有找到 "Release v" 开头的内容，使用整个tag消息
+            echo "Warning: No 'Release v' found, using full tag message"
             RELEASE_NOTES="$TAG_MESSAGE"
           fi
 
