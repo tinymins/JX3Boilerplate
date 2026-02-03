@@ -90,31 +90,12 @@ jobs:
           } >> $GITHUB_OUTPUT
 
       - name: Create GitHub Release
-        uses: actions/create-release@v1
-        id: create_release
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.get_tag.outputs.tag }}
-          release_name: Release ${{ steps.get_tag.outputs.tag }}
+          name: Release ${{ steps.get_tag.outputs.tag }}
           body: ${{ steps.release_notes.outputs.release_notes }}
           draft: false
           prerelease: false
-
-      - name: Upload Release Assets
-        run: |
-          TAG="${{ steps.get_tag.outputs.tag }}"
-          UPLOAD_URL="${{ steps.create_release.outputs.upload_url }}"
-
-          # 上传所有.7z文件到release
-          for file in \!src-dist/dist/*.7z; do
-            if [ -f "$file" ]; then
-              filename=$(basename "$file")
-              echo "Uploading $filename to release $TAG..."
-              curl -X POST \
-                -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-                -H "Content-Type: application/octet-stream" \
-                --data-binary @"$file" \
-                "${UPLOAD_URL%\{*}?name=$filename"
-            fi
-          done
+          files: |
+            !src-dist/dist/*.7z
