@@ -15,6 +15,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          token: ${{ secrets.PAT_TOKEN }}
 
       - name: Find release commit in push range
         id: find_release
@@ -101,4 +102,4 @@ jobs:
 
           git tag -a "$TAG_NAME" "$COMMIT" -m "Release $TAG_NAME"
 
-          git push "https://x-access-token:${{ secrets.PAT_TOKEN }}@github.com/${{ github.repository }}.git" "$TAG_NAME"
+          git push origin "$TAG_NAME"
