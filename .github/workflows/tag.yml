@@ -1,0 +1,101 @@
+name: Auto Tag
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  auto-tag:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Find release commit in push range
+        id: find_release
+        shell: bash
+        run: |
+          BEFORE="${{ github.event.before }}"
+          AFTER="${{ github.sha }}"
+
+          if [ "$BEFORE" = "0000000000000000000000000000000000000000" ]; then
+            RANGE="$AFTER"
+          else
+            RANGE="$BEFORE..$AFTER"
+          fi
+
+          echo "Scanning commits in range: $RANGE"
+
+          MATCH_COMMIT=""
+          MATCH_VERSION=""
+
+          while IFS='|' read -r hash msg; do
+            if [[ "$msg" =~ ^release:\s*([0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z0-9]+)?) ]]; then
+              MATCH_COMMIT="$hash"
+              MATCH_VERSION="${BASH_REMATCH[1]}"
+              break
+            fi
+
+            if [[ "$msg" =~ release/v([0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z0-9]+)?) ]]; then
+              MATCH_COMMIT="$hash"
+              MATCH_VERSION="${BASH_REMATCH[1]}"
+              break
+            fi
+          done < <(git log --format='%H|%s' "$RANGE")
+
+          if [ -z "$MATCH_COMMIT" ]; then
+            echo "No release commit found in push range."
+            echo "matched=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          echo "Found release commit: $MATCH_COMMIT (version $MATCH_VERSION)"
+          echo "matched=true" >> $GITHUB_OUTPUT
+          echo "commit=$MATCH_COMMIT" >> $GITHUB_OUTPUT
+          echo "version=$MATCH_VERSION" >> $GITHUB_OUTPUT
+
+      - name: Check existing tag on commit
+        if: steps.find_release.outputs.matched == 'true'
+        id: check_tag
+        shell: bash
+        run: |
+          COMMIT="${{ steps.find_release.outputs.commit }}"
+          VERSION="${{ steps.find_release.outputs.version }}"
+          TAG_NAME="v$VERSION"
+
+          if git rev-parse "$TAG_NAME" >/dev/null 2>&1; then
+            echo "Tag $TAG_NAME already exists. Skipping."
+            echo "should_tag=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          TAGS_ON_COMMIT=$(git tag --points-at "$COMMIT")
+          if [ -n "$TAGS_ON_COMMIT" ]; then
+            echo "Commit already has tags: $TAGS_ON_COMMIT"
+            echo "should_tag=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          echo "should_tag=true" >> $GITHUB_OUTPUT
+          echo "tag=$TAG_NAME" >> $GITHUB_OUTPUT
+
+      - name: Create and push tag
+        if: steps.check_tag.outputs.should_tag == 'true'
+        shell: bash
+        run: |
+          if [ -z "${{ secrets.PAT_TOKEN }}" ]; then
+            echo "Missing PAT_TOKEN secret. Cannot push tag to trigger workflows."
+            exit 1
+          fi
+
+          COMMIT="${{ steps.find_release.outputs.commit }}"
+          TAG_NAME="${{ steps.check_tag.outputs.tag }}"
+
+          git tag -a "$TAG_NAME" "$COMMIT" -m "Release $TAG_NAME"
+
+          git push "https://x-access-token:${{ secrets.PAT_TOKEN }}@github.com/${{ github.repository }}.git" "$TAG_NAME"
