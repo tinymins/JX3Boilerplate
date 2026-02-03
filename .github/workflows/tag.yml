@@ -93,6 +93,9 @@ jobs:
             exit 1
           fi
 
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
           COMMIT="${{ steps.find_release.outputs.commit }}"
           TAG_NAME="${{ steps.check_tag.outputs.tag }}"
 
